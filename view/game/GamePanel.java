@@ -23,16 +23,38 @@ public class GamePanel extends ListenerPanel {
     private final int GRID_SIZE = 50;
     private BoxComponent selectedBox;
 
-
     public GamePanel(MapModel model) {
         boxes = new ArrayList<>();
         this.setVisible(true);
         this.setFocusable(true);
         this.setLayout(null);
-        this.setSize(model.getWidth() * GRID_SIZE + 4, model.getHeight() * GRID_SIZE + 4);
+        this.requestFocusInWindow(); // Explicitly request focus
+        
+        // Debug model dimensions and contents before initialization
+        System.out.println("GamePanel constructor - Model dimensions: " + 
+            model.getHeight() + "x" + model.getWidth());
+        System.out.println("Model matrix preview:");
+        for (int i = 0; i < Math.min(2, model.getHeight()); i++) {
+            for (int j = 0; j < Math.min(5, model.getWidth()); j++) {
+                System.out.print(model.getId(i, j) + " ");
+            }
+            System.out.println();
+        }
+        
+        // Ensure panel size matches model dimensions plus space for undo button
+        int width = 4 * GRID_SIZE + 4;  // Fixed 4 columns
+        int height = 5 * GRID_SIZE + 4; // Fixed 5 rows
+        this.setSize(width, height);
         this.model = model;
         this.selectedBox = null;
-        initialGame();
+        
+        try {
+            initialGame();
+        } catch (Exception e) {
+            System.err.println("Error during initialGame():");
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     /*
@@ -44,43 +66,78 @@ public class GamePanel extends ListenerPanel {
      */
     public void initialGame() {
         this.steps = 0;
-        //copy a map
+        // Debug model dimensions and contents
+        System.out.println("Initializing game with model dimensions: " + 
+            model.getHeight() + "x" + model.getWidth());
+        System.out.println("Model matrix:");
+        for (int i = 0; i < model.getHeight(); i++) {
+            for (int j = 0; j < model.getWidth(); j++) {
+                System.out.print(model.getId(i, j) + " ");
+            }
+            System.out.println();
+        }
+        
+        // Validate model dimensions first (4 columns x 5 rows)
+        if (model.getWidth() != 4 || model.getHeight() != 5) {
+            throw new IllegalArgumentException("MapModel must be 4 columns x 5 rows");
+        }
+        
+        // Initialize game board from full model
         int[][] map = new int[model.getHeight()][model.getWidth()];
-        for (int i = 0; i < map.length; i++) {
-            for (int j = 0; j < map[0].length; j++) {
+        for (int i = 0; i < model.getHeight(); i++) {
+            for (int j = 0; j < model.getWidth(); j++) {
                 map[i][j] = model.getId(i, j);
             }
         }
-        //build Component
+        // Create components for all blocks
         for (int i = 0; i < map.length; i++) {
             for (int j = 0; j < map[0].length; j++) {
+                if (map[i][j] == 0) continue; // Skip empty cells
+                
                 BoxComponent box = null;
-                if (map[i][j] == 1) {
-                    box = new BoxComponent(Color.ORANGE, i, j);
-                    box.setSize(GRID_SIZE, GRID_SIZE);
-                    map[i][j] = 0;
-                } else if (map[i][j] == 2) {
-                    box = new BoxComponent(Color.PINK, i, j);
-                    box.setSize(GRID_SIZE * 2, GRID_SIZE);
-                    map[i][j] = 0;
-                    map[i][j + 1] = 0;
-                } else if (map[i][j] == 3) {
-                    box = new BoxComponent(Color.BLUE, i, j);
-                    box.setSize(GRID_SIZE, GRID_SIZE * 2);
-                    map[i][j] = 0;
-                    map[i + 1][j] = 0;
-                } else if (map[i][j] == 4) {
-                    box = new BoxComponent(Color.GREEN, i, j);
-                    box.setSize(GRID_SIZE * 2, GRID_SIZE * 2);
-                    map[i][j] = 0;
-                    map[i + 1][j] = 0;
-                    map[i][j + 1] = 0;
-                    map[i + 1][j + 1] = 0;
+                int blockType = map[i][j];
+                
+                switch(blockType) {
+                    case 1: // Cao Cao (2x2)
+                        if (i < map.length - 1 && j < map[0].length - 1) {
+                            box = new BoxComponent(Color.RED, i, j);
+                            box.setSize(GRID_SIZE * 2, GRID_SIZE * 2);
+                        }
+                        break;
+                    case 2: // Guan Yu (2x1)
+                        if (j < map[0].length - 1) {
+                            box = new BoxComponent(Color.ORANGE, i, j);
+                            box.setSize(GRID_SIZE * 2, GRID_SIZE);
+                        }
+                        break;
+                    case 3: // General (1x2 vertical)
+                        if (i < map.length - 1 && map[i][j] == MapModel.GENERAL && map[i+1][j] == MapModel.GENERAL) {
+                            box = new BoxComponent(Color.BLUE, i, j);
+                            box.setSize(GRID_SIZE, GRID_SIZE * 2);
+                            map[i+1][j] = 0; // Mark lower cell as processed
+                        }
+                        break;
+                    case 4: // Soldier (1x1)
+                        box = new BoxComponent(Color.GREEN, i, j);
+                        box.setSize(GRID_SIZE, GRID_SIZE);
+                        break;
                 }
+                
                 if (box != null) {
-                    box.setLocation(j * GRID_SIZE + 2, i * GRID_SIZE + 2);
+                    // Calculate position and ensure it stays within panel bounds
+                    int x = Math.min(j * GRID_SIZE + 2, this.getWidth() - box.getWidth());
+                    int y = Math.min(i * GRID_SIZE + 2, this.getHeight() - box.getHeight());
+                    box.setLocation(x, y);
                     boxes.add(box);
                     this.add(box);
+                    // Mark all occupied cells as processed
+                    for (int r = i; r < i + box.getHeight()/GRID_SIZE; r++) {
+                        for (int c = j; c < j + box.getWidth()/GRID_SIZE; c++) {
+                            if (r < map.length && c < map[0].length) {
+                                map[r][c] = 0;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -155,8 +212,10 @@ public class GamePanel extends ListenerPanel {
     }
 
     public void afterMove() {
-        this.steps++;
-        this.stepLabel.setText(String.format("Step: %d", this.steps));
+        // Step count is now handled by GameController
+        if (stepLabel != null) {
+            stepLabel.setText(String.format("Step: %d", controller.getMoveCount()));
+        }
     }
 
     public void setStepLabel(JLabel stepLabel) {
@@ -165,7 +224,9 @@ public class GamePanel extends ListenerPanel {
 
 
     public void setController(GameController controller) {
+        System.err.println("Setting controller: " + controller);
         this.controller = controller;
+        this.requestFocusInWindow(); // Ensure panel has focus for key events
     }
 
     public BoxComponent getSelectedBox() {
@@ -174,5 +235,26 @@ public class GamePanel extends ListenerPanel {
 
     public int getGRID_SIZE() {
         return GRID_SIZE;
+    }
+
+    public void resetBoard(int[][] newMatrix) {
+        // Clear existing boxes
+        for (BoxComponent box : boxes) {
+            this.remove(box);
+        }
+        boxes.clear();
+        
+        // Update model reference
+        this.model = new MapModel(newMatrix);
+        
+        // Reinitialize game with new board
+        initialGame();
+    }
+
+    public void updateMoveCount(int count) {
+        this.steps = count;
+        if (stepLabel != null) {
+            stepLabel.setText(String.format("Step: %d", this.steps));
+        }
     }
 }
