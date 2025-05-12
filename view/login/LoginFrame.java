@@ -146,20 +146,17 @@ public class LoginFrame extends JFrame {
 
         submitBtn.addActionListener(e -> {
             // Validate login credentials
-            String user = username.getText();
-            if (validateLogin(user, new String(password.getPassword()))) {
+            if (validateLogin(username.getText(), new String(password.getPassword()))) {
                 if (this.gameFrame == null) {
                     MapModel mapModel = new MapModel();
                     this.gameFrame = new GameFrame(800, 600, mapModel);
                 }
-                // Set current user in controller and disable guest mode
-                this.gameFrame.getController().setCurrentUser(user);
-                this.gameFrame.setGuestMode(false);
                 this.gameFrame.setVisible(true);
                 this.setVisible(false);
             } else {
                 JOptionPane.showMessageDialog(this, "Invalid username or password");
             }
+
         });
 
         guestBtn.addActionListener(e -> {

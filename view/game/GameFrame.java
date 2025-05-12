@@ -49,9 +49,7 @@ public class GameFrame extends JFrame {
             controller.undoMove();
             gamePanel.requestFocusInWindow();
         });
-        // Create Save button next to Load button
         this.loadBtn = FrameUtil.createButton(this, "Load", new Point(gamePanel.getWidth() + 80, 210), 80, 50);
-        JButton saveBtn = FrameUtil.createButton(this, "Save", new Point(gamePanel.getWidth() + 80, 280), 80, 50);
         this.stepLabel = FrameUtil.createJLabel(this, "Start", new Font("serif", Font.ITALIC, 22), new Point(gamePanel.getWidth() + 80, 70), 180, 50);
         gamePanel.setStepLabel(stepLabel);
 
@@ -63,16 +61,9 @@ public class GameFrame extends JFrame {
             if (guestMode) {
                 JOptionPane.showMessageDialog(this, "Guest users cannot load games");
             } else {
-                controller.loadGame();
-                gamePanel.requestFocusInWindow();
-            }
-        });
-        saveBtn.addActionListener(e -> {
-            if (guestMode) {
-                JOptionPane.showMessageDialog(this, "Guest users cannot save games");
-            } else {
-                controller.saveGame();
-                gamePanel.requestFocusInWindow();
+                String string = JOptionPane.showInputDialog(this, "Input path:");
+                System.out.println(string);
+                gamePanel.requestFocusInWindow();//enable key listener
             }
         });
         //todo: add other button here
@@ -95,29 +86,10 @@ public class GameFrame extends JFrame {
         if (guestMode) {
             this.setTitle("2025 CS109 Project Demo (Guest Mode)");
             this.loadBtn.setEnabled(false);
-            // Also disable Save button in guest mode
-            for (Component c : this.getContentPane().getComponents()) {
-                if (c instanceof JButton && ((JButton)c).getText().equals("Save")) {
-                    ((JButton)c).setEnabled(false);
-                }
-            }
-        } else {
-            this.setTitle("2025 CS109 Project Demo");
-            this.loadBtn.setEnabled(true);
-            // Enable Save button when not in guest mode
-            for (Component c : this.getContentPane().getComponents()) {
-                if (c instanceof JButton && ((JButton)c).getText().equals("Save")) {
-                    ((JButton)c).setEnabled(true);
-                }
-            }
         }
     }
 
     public boolean isGuestMode() {
         return guestMode;
-    }
-    
-    public GameController getController() {
-        return controller;
     }
 }
