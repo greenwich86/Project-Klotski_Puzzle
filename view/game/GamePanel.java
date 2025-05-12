@@ -224,7 +224,7 @@ public class GamePanel extends ListenerPanel {
 
 
     public void setController(GameController controller) {
-        System.err.println("Setting controller: " + controller);
+//        System.err.println("Setting controller: " + controller);
         this.controller = controller;
         this.requestFocusInWindow(); // Ensure panel has focus for key events
     }

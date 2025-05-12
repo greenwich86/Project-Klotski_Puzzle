@@ -30,9 +30,9 @@ public class GameFrame extends JFrame {
             gamePanel = new GamePanel(mapModel);
             gamePanel.setLocation(30, height / 2 - gamePanel.getHeight() / 2);
             this.add(gamePanel);
-            System.err.println("Creating GameController...");
+//            System.err.println("Creating GameController...");
             this.controller = new GameController(gamePanel, mapModel);
-            System.err.println("Controller created: " + controller);
+//            System.err.println("Controller created: " + controller);
             this.controller.restartGame(); // Initialize game state
             gamePanel.requestFocusInWindow(); // Ensure focus for key events
         } catch (Exception e) {

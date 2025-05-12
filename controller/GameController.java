@@ -49,7 +49,7 @@ public class GameController {
     }
 
     public boolean undoMove() {
-        if (moveHistory.isEmpty()) {
+        if (moveHistory.isEmpty() || moveCount <= 0) {
             return false;
         }
         
@@ -62,7 +62,7 @@ public class GameController {
     }
 
     private boolean canMove(int row, int col, int width, int height, Direction direction) {
-        System.err.println("Checking move from ["+row+"]["+col+"] size "+width+"x"+height+" dir "+direction);
+        // System.err.println("Checking move from ["+row+"]["+col+"] size "+width+"x"+height+" dir "+direction);
         
         // Check boundaries first
         if (direction == Direction.UP && row == 0) return false;
@@ -73,81 +73,105 @@ public class GameController {
         // Check all cells in movement direction
         if (direction == Direction.UP) {
             for (int c = col; c < col + width; c++) {
-                if (model.getId(row - 1, c) != 0) return false;
+                if (model.getId(row - 1, c) > 0) return false;
             }
         } 
         else if (direction == Direction.DOWN) {
             for (int c = col; c < col + width; c++) {
-                if (model.getId(row + height, c) != 0) return false;
+                if (model.getId(row + height, c) > 0) return false;
             }
         }
         else if (direction == Direction.LEFT) {
             for (int r = row; r < row + height; r++) {
-                if (model.getId(r, col - 1) != 0) return false;
+                if (model.getId(r, col - 1) > 0) return false;
             }
         }
         else if (direction == Direction.RIGHT) {
             for (int r = row; r < row + height; r++) {
-                if (model.getId(r, col + width) != 0) return false;
+                if (model.getId(r, col + width) > 0) return false;
             }
         }
         
-        System.out.println("Move valid");
+        // System.out.println("Move valid");
         return true;
     }
 
     public boolean doMove(int row, int col, Direction direction) {
-        System.err.println("Attempting move from ["+row+"]["+col+"] direction "+direction);
+        // System.err.println("Attempting move from ["+row+"]["+col+"] direction "+direction);
         int blockType = model.getId(row, col);
-        System.err.println("Block type: "+blockType);
-        if (blockType > 0) { // Any block can move
-            // Determine block dimensions based on type
-            int width = 1;
-            int height = 1;
+        // System.err.println("Block type: "+blockType);
+        
+        // Determine block dimensions based on type
+        int width = 1;
+        int height = 1;
+        
+        if (blockType == MapModel.CAO_CAO) { // 2x2 block
+            width = 2;
+            height = 2;
+        } else if (blockType == MapModel.GUAN_YU) { // 2x1 block
+            width = 2;
+            height = 1;
+        } else if (blockType == MapModel.GENERAL) { // 1x2 block
+            width = 1;
+            height = 2;
+        } else { // Single square blocks
+            width = 1;
+            height = 1;
+        }
+        
+        // System.err.println("Block dimensions: " + width + "x" + height);
+        
+        // System.err.println("Checking move for block type " + blockType + " with dimensions " + width + "x" + height);
+        boolean canMove = canMove(row, col, width, height, direction);
+        // System.err.println("Can move result: " + canMove);
+        if (canMove) {
+            // Calculate new top-left position
+            int nextRow = row + direction.getRow();
+            int nextCol = col + direction.getCol();
             
-            if (blockType == MapModel.CAO_CAO) { // 2x2 block
-                width = 2;
-                height = 2;
-            } else if (blockType == MapModel.GUAN_YU) { // 2x1 block
-                width = 2;
-            } else if (blockType == MapModel.GENERAL) { // 1x2 block
-                height = 2;
+            // Move the block by clearing old positions and setting new ones
+            for (int r = row; r < row + height; r++) {
+                for (int c = col; c < col + width; c++) {
+                    model.getMatrix()[r][c] = 0;
+                }
+            }
+            for (int r = row; r < row + height; r++) {
+                for (int c = col; c < col + width; c++) {
+                    model.getMatrix()[r + direction.getRow()][c + direction.getCol()] = blockType;
+                }
             }
             
-            System.err.println("Block dimensions: " + width + "x" + height);
+            BoxComponent box = view.getSelectedBox();
+            box.setRow(nextRow);
+            box.setCol(nextCol);
+            box.setLocation(box.getCol() * view.getGRID_SIZE() + 2, box.getRow() * view.getGRID_SIZE() + 2);
             
-            if (canMove(row, col, width, height, direction)) {
-                // Calculate new top-left position
-                int nextRow = row + direction.getRow();
-                int nextCol = col + direction.getCol();
-                
-                // Move the block by clearing old positions and setting new ones
-                for (int r = row; r < row + height; r++) {
-                    for (int c = col; c < col + width; c++) {
-                        model.getMatrix()[r][c] = 0;
-                        model.getMatrix()[r + direction.getRow()][c + direction.getCol()] = blockType;
-                    }
-                }
-                
-                BoxComponent box = view.getSelectedBox();
-                box.setRow(nextRow);
-                box.setCol(nextCol);
-                box.setLocation(box.getCol() * view.getGRID_SIZE() + 2, box.getRow() * view.getGRID_SIZE() + 2);
+            // Special handling for general blocks (1x2)
+            if (blockType == MapModel.GENERAL) {
+                // Update both positions in the model
+                model.getMatrix()[nextRow][nextCol] = blockType;
+                model.getMatrix()[nextRow + 1][nextCol] = blockType;
+                // Force full panel repaint
+                view.resetBoard(model.getMatrix());
+                view.repaint();
+            } else {
                 box.repaint();
-                
+            }
+            
                 // Save state after move and update count
                 moveHistory.push(model.copyMatrix());
                 moveCount++;
                 view.updateMoveCount(moveCount);
-                
-                // Check victory condition (Cao Cao at exit position - bottom row)
-                if (blockType == MapModel.CAO_CAO && 
-                    nextRow == model.getHeight() - 1 &&  // Bottom row (row 4 in 5-row board)
-                    nextCol == 1) {  // Columns 1-2 (2x2 block)
-                    showVictory();
-                }
-                return true;
+                // Force view refresh to ensure proper state
+                view.resetBoard(model.getMatrix());
+            
+            // Check victory condition (Cao Cao at exit position - bottom row)
+            if (blockType == MapModel.CAO_CAO && 
+                nextRow == model.getHeight() - 1 &&  // Bottom row (row 4 in 5-row board)
+                nextCol == 1) {  // Columns 1-2 (2x2 block)
+                showVictory();
             }
+            return true;
         }
         return false;
     }
