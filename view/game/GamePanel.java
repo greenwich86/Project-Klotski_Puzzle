@@ -23,14 +23,6 @@ public class GamePanel extends ListenerPanel {
     private final int GRID_SIZE = 50;
     private BoxComponent selectedBox;
 
-    private String colorToString(Color color) {
-        if (color.equals(Color.RED)) return "CaoCao (2x2)";
-        if (color.equals(Color.ORANGE)) return "GuanYu (2x1)"; 
-        if (color.equals(Color.BLUE)) return "General (1x2)";
-        if (color.equals(Color.GREEN)) return "Soldier (1x1)";
-        return "Unknown";
-    }
-
     public GamePanel(MapModel model) {
         boxes = new ArrayList<>();
         this.setVisible(true);
@@ -38,6 +30,16 @@ public class GamePanel extends ListenerPanel {
         this.setLayout(null);
         this.requestFocusInWindow(); // Explicitly request focus
         
+        // Debug model dimensions and contents before initialization
+        System.out.println("GamePanel constructor - Model dimensions: " + 
+            model.getHeight() + "x" + model.getWidth());
+        System.out.println("Model matrix preview:");
+        for (int i = 0; i < Math.min(2, model.getHeight()); i++) {
+            for (int j = 0; j < Math.min(5, model.getWidth()); j++) {
+                System.out.print(model.getId(i, j) + " ");
+            }
+            System.out.println();
+        }
         
         // Ensure panel size matches model dimensions plus space for undo button
         int width = 4 * GRID_SIZE + 4;  // Fixed 4 columns
@@ -64,6 +66,16 @@ public class GamePanel extends ListenerPanel {
      */
     public void initialGame() {
         this.steps = 0;
+        // Debug model dimensions and contents
+        System.out.println("Initializing game with model dimensions: " + 
+            model.getHeight() + "x" + model.getWidth());
+        System.out.println("Model matrix:");
+        for (int i = 0; i < model.getHeight(); i++) {
+            for (int j = 0; j < model.getWidth(); j++) {
+                System.out.print(model.getId(i, j) + " ");
+            }
+            System.out.println();
+        }
         
         // Validate model dimensions first (4 columns x 5 rows)
         if (model.getWidth() != 4 || model.getHeight() != 5) {
@@ -112,22 +124,17 @@ public class GamePanel extends ListenerPanel {
                 }
                 
                 if (box != null) {
-                    // Simple grid-aligned positioning
-                    int x = j * GRID_SIZE;
-                    int y = i * GRID_SIZE;
-                    
-                    
+                    // Calculate position and ensure it stays within panel bounds
+                    int x = Math.min(j * GRID_SIZE + 2, this.getWidth() - box.getWidth());
+                    int y = Math.min(i * GRID_SIZE + 2, this.getHeight() - box.getHeight());
                     box.setLocation(x, y);
                     boxes.add(box);
                     this.add(box);
-                    
-                    // Mark occupied cells
-                    int rowsOccupied = box.getHeight()/GRID_SIZE;
-                    int colsOccupied = box.getWidth()/GRID_SIZE;
-                    for (int r = 0; r < rowsOccupied; r++) {
-                        for (int c = 0; c < colsOccupied; c++) {
-                            if (i+r < map.length && j+c < map[0].length) {
-                                map[i+r][j+c] = 0;
+                    // Mark all occupied cells as processed
+                    for (int r = i; r < i + box.getHeight()/GRID_SIZE; r++) {
+                        for (int c = j; c < j + box.getWidth()/GRID_SIZE; c++) {
+                            if (r < map.length && c < map[0].length) {
+                                map[r][c] = 0;
                             }
                         }
                     }
@@ -140,36 +147,9 @@ public class GamePanel extends ListenerPanel {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        Graphics2D g2d = (Graphics2D)g;
-        
-        // Draw parchment background with texture
-        GradientPaint bgGradient = new GradientPaint(
-            0, 0, new Color(245, 235, 200),
-            getWidth(), getHeight(), new Color(220, 200, 170));
-        g2d.setPaint(bgGradient);
-        g2d.fillRect(0, 0, getWidth(), getHeight());
-        
-        // Add subtle paper texture
-        g2d.setColor(new Color(0, 0, 0, 10));
-        for (int i = 0; i < getWidth(); i += 4) {
-            g2d.drawLine(i, 0, i, getHeight());
-        }
-        
-        // Draw grid lines aligned with block positions
-        g2d.setColor(new Color(139, 69, 19, 50));
-        g2d.setStroke(new BasicStroke(1));
-        for (int i = 0; i <= 5; i++) { // 5 rows
-            g2d.drawLine(0, i * GRID_SIZE, getWidth(), i * GRID_SIZE);
-        }
-        for (int i = 0; i <= 4; i++) { // 4 columns
-            g2d.drawLine(i * GRID_SIZE, 0, i * GRID_SIZE, getHeight());
-        }
-        
-        // Enhanced border
-        Border border = BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(101, 67, 33), 2),
-            BorderFactory.createMatteBorder(4, 4, 4, 4, new Color(244, 164, 96))
-        );
+        g.setColor(Color.LIGHT_GRAY);
+        g.fillRect(0, 0, this.getWidth(), this.getHeight());
+        Border border = BorderFactory.createLineBorder(Color.DARK_GRAY, 2);
         this.setBorder(border);
     }
 
@@ -193,9 +173,9 @@ public class GamePanel extends ListenerPanel {
 
     @Override
     public void doMoveRight() {
+        System.out.println("Click VK_RIGHT");
         if (selectedBox != null) {
             if (controller.doMove(selectedBox.getRow(), selectedBox.getCol(), Direction.RIGHT)) {
-                animatePiece(selectedBox, Direction.RIGHT);
                 afterMove();
             }
         }
@@ -203,9 +183,9 @@ public class GamePanel extends ListenerPanel {
 
     @Override
     public void doMoveLeft() {
+        System.out.println("Click VK_LEFT");
         if (selectedBox != null) {
             if (controller.doMove(selectedBox.getRow(), selectedBox.getCol(), Direction.LEFT)) {
-                animatePiece(selectedBox, Direction.LEFT);
                 afterMove();
             }
         }
@@ -213,9 +193,9 @@ public class GamePanel extends ListenerPanel {
 
     @Override
     public void doMoveUp() {
+        System.out.println("Click VK_Up");
         if (selectedBox != null) {
             if (controller.doMove(selectedBox.getRow(), selectedBox.getCol(), Direction.UP)) {
-                animatePiece(selectedBox, Direction.UP);
                 afterMove();
             }
         }
@@ -223,40 +203,12 @@ public class GamePanel extends ListenerPanel {
 
     @Override
     public void doMoveDown() {
+        System.out.println("Click VK_DOWN");
         if (selectedBox != null) {
             if (controller.doMove(selectedBox.getRow(), selectedBox.getCol(), Direction.DOWN)) {
-                animatePiece(selectedBox, Direction.DOWN);
                 afterMove();
             }
         }
-    }
-
-    private void animatePiece(BoxComponent box, Direction direction) {
-        // Calculate new model position
-        int newRow = box.getRow();
-        int newCol = box.getCol();
-        
-        switch(direction) {
-            case RIGHT: newCol++; break;
-            case LEFT: newCol--; break;
-            case UP: newRow--; break;
-            case DOWN: newRow++; break;
-        }
-        
-        // Update model position first
-        box.setRow(newRow);
-        box.setCol(newCol);
-        
-        // Calculate target pixel position
-        int x = newCol * GRID_SIZE;
-        int y = newRow * GRID_SIZE;
-        
-        // Bring to front during movement
-        box.getParent().setComponentZOrder(box, 0);
-        
-        // Animate smoothly to new position (300ms duration)
-        box.animateTo(new Point(x, y), 300);
-        
     }
 
     public void afterMove() {

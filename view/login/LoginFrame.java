@@ -30,51 +30,42 @@ public class LoginFrame extends JFrame {
     private void showRegistrationDialog() {
         JDialog dialog = new JDialog(this, "Register New User", true);
         dialog.setLayout(null);
-        dialog.setSize(350, 250);
-        dialog.getContentPane().setBackground(new Color(245, 235, 200));
+        dialog.setSize(300, 200);
 
-        // Create styled labels
         JLabel userLabel = new JLabel("Username:");
-        userLabel.setBounds(30, 30, 80, 25);
-        userLabel.setFont(new Font("Microsoft YaHei", Font.BOLD, 12));
-        userLabel.setForeground(new Color(101, 67, 33));
+        userLabel.setBounds(20, 20, 80, 25);
         dialog.add(userLabel);
 
         JLabel passLabel = new JLabel("Password:");
-        passLabel.setBounds(30, 70, 80, 25);
-        passLabel.setFont(new Font("Microsoft YaHei", Font.BOLD, 12));
-        passLabel.setForeground(new Color(101, 67, 33));
+        passLabel.setBounds(20, 60, 80, 25);
         dialog.add(passLabel);
 
         JLabel confirmLabel = new JLabel("Confirm:");
-        confirmLabel.setBounds(30, 110, 80, 25);
-        confirmLabel.setFont(new Font("Microsoft YaHei", Font.BOLD, 12));
-        confirmLabel.setForeground(new Color(101, 67, 33));
+        confirmLabel.setBounds(20, 100, 80, 25);
         dialog.add(confirmLabel);
 
-        // Create styled text fields
         JTextField regUser = new JTextField();
-        regUser.setBounds(120, 30, 180, 25);
-        styleTextField(regUser);
+        regUser.setBounds(110, 20, 150, 25);
         dialog.add(regUser);
 
         JPasswordField regPass = new JPasswordField();
-        regPass.setBounds(120, 70, 180, 25);
-        styleTextField(regPass);
+        regPass.setBounds(110, 60, 150, 25);
         dialog.add(regPass);
 
         JPasswordField confirmPass = new JPasswordField();
-        confirmPass.setBounds(120, 110, 180, 25);
-        styleTextField(confirmPass);
+        confirmPass.setBounds(110, 100, 150, 25);
         dialog.add(confirmPass);
 
-        // Create themed buttons
-        JButton confirmBtn = createThemedButton("Confirm", new Point(50, 150), 100, 30);
+        dialog.setSize(300, 300); // Increased height for new buttons
+
+        JButton confirmBtn = new JButton("Confirm");
+        confirmBtn.setBounds(50, 140, 90, 30);
         dialog.add(confirmBtn);
 
-        JButton registerBtn = createThemedButton("Register", new Point(170, 150), 100, 30);
+        JButton registerBtn = new JButton("Register");
+        registerBtn.setBounds(160, 140, 90, 30);
         registerBtn.setEnabled(false);
-        dialog.add(registerBtn);
+        dialog.add(registerBtn); // Add this line to ensure button is in dialog
         confirmBtn.addActionListener(e -> {
             String newUser = regUser.getText();
             String newPass = new String(regPass.getPassword());
@@ -136,139 +127,22 @@ public class LoginFrame extends JFrame {
     }
 
 
-    private JButton createThemedButton(String text, Point location, int width, int height) {
-        JButton button = new JButton(text);
-        button.setBounds(location.x, location.y, width, height);
-        button.setFont(new Font("Microsoft YaHei", Font.BOLD, 14));
-        button.setForeground(new Color(101, 67, 33));
-        button.setBackground(new Color(210, 180, 140));
-        button.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(139, 69, 19), 2),
-            BorderFactory.createEmptyBorder(5, 5, 5, 5)
-        ));
-        button.setFocusPainted(false);
-        
-        button.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseEntered(java.awt.event.MouseEvent evt) {
-                button.setBackground(new Color(220, 190, 150));
-            }
-            public void mouseExited(java.awt.event.MouseEvent evt) {
-                button.setBackground(new Color(210, 180, 140));
-            }
-        });
-        
-        return button;
-    }
-
-    private void styleTextField(JTextField field) {
-        // Base styling
-        field.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(139, 69, 19), 1),
-            BorderFactory.createEmptyBorder(5, 5, 5, 5)
-        ));
-        field.setFont(new Font("Microsoft YaHei", Font.PLAIN, 14));
-        field.setBackground(new Color(255, 253, 245));
-        
-        // Focus listener for highlighting
-        field.addFocusListener(new java.awt.event.FocusAdapter() {
-            public void focusGained(java.awt.event.FocusEvent evt) {
-                field.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(new Color(210, 105, 30), 2),
-                    BorderFactory.createEmptyBorder(4, 4, 4, 4)
-                ));
-            }
-            public void focusLost(java.awt.event.FocusEvent evt) {
-                field.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(new Color(139, 69, 19), 1),
-                    BorderFactory.createEmptyBorder(5, 5, 5, 5)
-                ));
-            }
-        });
-        
-        // Add placeholder text if empty
-        if (field instanceof JTextField && !(field instanceof JPasswordField)) {
-            ((JTextField)field).setText("Enter username...");
-            field.setForeground(new Color(150, 150, 150));
-            field.addFocusListener(new java.awt.event.FocusAdapter() {
-                public void focusGained(java.awt.event.FocusEvent evt) {
-                    if (field.getText().equals("Enter username...")) {
-                        field.setText("");
-                        field.setForeground(Color.BLACK);
-                    }
-                }
-                public void focusLost(java.awt.event.FocusEvent evt) {
-                    if (field.getText().isEmpty()) {
-                        field.setForeground(new Color(150, 150, 150));
-                        field.setText("Enter username...");
-                    }
-                }
-            });
-        }
-    }
-
     public LoginFrame(int width, int height) {
         this.userManager = new UserManager();
-        this.setTitle("Klotski Puzzle - Login");
+        this.setTitle("Login Frame");
         this.setLayout(null);
-        // Increased frame size to ensure all components fit
-        this.setSize(500, 400);
-        this.getContentPane().setBackground(new Color(245, 235, 200));
-        
-        // Center components with more spacing
-        int centerX = 150;
-        
-        JLabel userLabel = new JLabel("Username:");
-        userLabel.setBounds(centerX, 50, 100, 30);
-        userLabel.setFont(new Font("Microsoft YaHei", Font.BOLD, 16));
-        userLabel.setForeground(new Color(101, 67, 33));
-        this.add(userLabel);
-        
-        JLabel passLabel = new JLabel("Password:");
-        passLabel.setBounds(centerX, 120, 100, 30);
-        passLabel.setFont(new Font("Microsoft YaHei", Font.BOLD, 16));
-        passLabel.setForeground(new Color(101, 67, 33));
-        this.add(passLabel);
-        
-        username = new JTextField();
-        username.setBounds(centerX + 110, 50, 200, 30);
-        styleTextField(username);
-        this.add(username);
-        
+        this.setSize(width, height);
+        JLabel userLabel = FrameUtil.createJLabel(this, new Point(50, 20), 70, 40, "username:");
+        JLabel passLabel = FrameUtil.createJLabel(this, new Point(50, 80), 70, 40, "password:");
+        username = FrameUtil.createJTextField(this, new Point(120, 20), 120, 40);
         password = new JPasswordField();
-        password.setBounds(centerX + 110, 120, 200, 30);
-        styleTextField(password);
+        password.setBounds(120, 80, 120, 40);
         this.add(password);
 
-        System.out.println("Creating buttons...");
-        
-        // Position buttons with better spacing and proportions
-        int buttonWidth = 100;
-        int buttonHeight = 35;
-        int buttonSpacing = 20;
-        
-        submitBtn = createThemedButton("Login", new Point(centerX, 170), buttonWidth, buttonHeight);
-        resetBtn = createThemedButton("Reset", new Point(centerX + buttonWidth + buttonSpacing, 170), buttonWidth, buttonHeight);
-        
-        JButton guestBtn = createThemedButton("Guest", new Point(centerX, 220), buttonWidth, buttonHeight);
-        JButton registerBtn = createThemedButton("Register", new Point(centerX + buttonWidth + buttonSpacing, 220), buttonWidth, buttonHeight);
-        
-        // Debug logging for button visibility
-        System.out.println("\nButton bounds:");
-        System.out.println("Login: " + submitBtn.getBounds() + ", visible: " + submitBtn.isVisible());
-        System.out.println("Reset: " + resetBtn.getBounds() + ", visible: " + resetBtn.isVisible());
-        System.out.println("Guest: " + guestBtn.getBounds() + ", visible: " + guestBtn.isVisible());
-        System.out.println("Register: " + registerBtn.getBounds() + ", visible: " + registerBtn.isVisible());
-        
-        // Explicitly add all buttons to frame and validate
-        this.add(submitBtn);
-        this.add(resetBtn);
-        this.add(guestBtn);
-        this.add(registerBtn);
-        
-        System.out.println("\nFrame components after adding buttons:");
-        for (Component comp : this.getContentPane().getComponents()) {
-            System.out.println(comp.getClass().getSimpleName() + ": " + comp.getBounds());
-        }
+        submitBtn = FrameUtil.createButton(this, "Login", new Point(40, 140), 100, 40);
+        resetBtn = FrameUtil.createButton(this, "Reset", new Point(160, 140), 100, 40);
+        JButton guestBtn = FrameUtil.createButton(this, "Play as Guest", new Point(40, 190), 220, 40);
+        JButton registerBtn = FrameUtil.createButton(this, "Register", new Point(40, 240), 220, 40);
 
         submitBtn.addActionListener(e -> {
             // Validate login credentials
