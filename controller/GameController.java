@@ -7,7 +7,8 @@ import model.MapModel;
 import view.game.BoxComponent;
 import view.game.GamePanel;
 import java.io.*;
-import org.json.*;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 /**
  * It is a bridge to combine GamePanel(view) and MapMatrix(model) in one game.
@@ -49,13 +50,13 @@ public class GameController {
     }
 
     public boolean undoMove() {
-        if (moveHistory.isEmpty()) {
+        if (moveHistory.size() <= 1) { // Don't allow undo past initial state
             return false;
         }
         
         int[][] previousState = moveHistory.pop();
         this.model = new MapModel(previousState);
-        this.moveCount--;
+        this.moveCount = Math.max(0, moveCount - 1); // Prevent negative values
         view.resetBoard(previousState);
         view.updateMoveCount(moveCount);
         return true;
@@ -100,6 +101,10 @@ public class GameController {
         System.err.println("Attempting move from ["+row+"]["+col+"] direction "+direction);
         int blockType = model.getId(row, col);
         System.err.println("Block type: "+blockType);
+        System.err.println("Current moveCount before move: " + moveCount);
+        if (blockType <= 0) { // Ignore empty spaces
+            return false;
+        }
         if (blockType > 0) { // Any block can move
             // Determine block dimensions based on type
             int width = 1;
@@ -117,15 +122,26 @@ public class GameController {
             System.err.println("Block dimensions: " + width + "x" + height);
             
             if (canMove(row, col, width, height, direction)) {
-                // Calculate new top-left position
-                int nextRow = row + direction.getRow();
-                int nextCol = col + direction.getCol();
+                // Calculate new position (only move one space)
+                int nextRow = row;
+                int nextCol = col;
+                
+                switch(direction) {
+                    case UP: nextRow--; break;
+                    case DOWN: nextRow++; break;
+                    case LEFT: nextCol--; break;
+                    case RIGHT: nextCol++; break;
+                }
                 
                 // Move the block by clearing old positions and setting new ones
                 for (int r = row; r < row + height; r++) {
                     for (int c = col; c < col + width; c++) {
                         model.getMatrix()[r][c] = 0;
-                        model.getMatrix()[r + direction.getRow()][c + direction.getCol()] = blockType;
+                    }
+                }
+                for (int r = nextRow; r < nextRow + height; r++) {
+                    for (int c = nextCol; c < nextCol + width; c++) {
+                        model.getMatrix()[r][c] = blockType;
                     }
                 }
                 
@@ -138,7 +154,9 @@ public class GameController {
                 // Save state after move and update count
                 moveHistory.push(model.copyMatrix());
                 moveCount++;
+                System.err.println("Current move count after increment: " + moveCount);
                 view.updateMoveCount(moveCount);
+                System.err.println("moveCount after UI update: " + moveCount);
                 
                 // Check victory condition (Cao Cao at exit position - bottom row)
                 if (blockType == MapModel.CAO_CAO && 
