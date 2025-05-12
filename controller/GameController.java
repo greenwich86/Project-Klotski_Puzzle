@@ -6,6 +6,8 @@ import model.Direction;
 import model.MapModel;
 import view.game.BoxComponent;
 import view.game.GamePanel;
+import java.io.*;
+import org.json.*;
 
 /**
  * It is a bridge to combine GamePanel(view) and MapMatrix(model) in one game.
@@ -15,6 +17,7 @@ public class GameController {
     private final GamePanel view;
     private MapModel model;
     private Stack<int[][]> moveHistory;
+    private String currentUser;
 
     public GameController(GamePanel view, MapModel model) {
         this.moveHistory = new Stack<>();
@@ -27,6 +30,10 @@ public class GameController {
     
     public int getMoveCount() {
         return moveCount;
+    }
+    
+    public void setCurrentUser(String username) {
+        this.currentUser = username;
     }
     
     public void restartGame() {
@@ -153,6 +160,89 @@ public class GameController {
         restartGame();
     }
 
-    //todo: add other methods such as loadGame, saveGame...
+    public void saveGame() {
+        if (currentUser == null || currentUser.isEmpty()) {
+            JOptionPane.showMessageDialog(view, "Cannot save in guest mode", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
+        try {
+            File savesDir = new File("saves");
+            if (!savesDir.exists()) {
+                savesDir.mkdir();
+            }
+
+            JSONObject saveData = new JSONObject();
+            saveData.put("username", currentUser);
+            saveData.put("moveCount", moveCount);
+            saveData.put("boardState", model.getMatrix());
+
+            File saveFile = new File("saves/" + currentUser + ".json");
+            try (FileWriter writer = new FileWriter(saveFile)) {
+                writer.write(saveData.toString(2)); // Pretty print with 2-space indent
+                JOptionPane.showMessageDialog(view, "Game saved successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(view, "Failed to save game: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+        }
+    }
+
+    public boolean loadGame() {
+        if (currentUser == null || currentUser.isEmpty()) {
+            JOptionPane.showMessageDialog(view, "Cannot load in guest mode", "Error", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+
+        File saveFile = new File("saves/" + currentUser + ".json");
+        if (!saveFile.exists()) {
+            JOptionPane.showMessageDialog(view, "No saved game found", "Error", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+
+        try {
+            StringBuilder json = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new FileReader(saveFile))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    json.append(line);
+                }
+            }
+
+            JSONObject saveData = new JSONObject(json.toString());
+            if (!saveData.has("username") || !saveData.has("moveCount") || !saveData.has("boardState")) {
+                throw new Exception("Invalid save file format");
+            }
+
+            // Verify the save belongs to current user
+            if (!saveData.getString("username").equals(currentUser)) {
+                throw new Exception("Save file does not belong to current user");
+            }
+
+            // Restore game state
+            moveCount = saveData.getInt("moveCount");
+            JSONArray boardArray = saveData.getJSONArray("boardState");
+            int[][] loadedMatrix = new int[boardArray.length()][];
+            for (int i = 0; i < boardArray.length(); i++) {
+                JSONArray row = boardArray.getJSONArray(i);
+                loadedMatrix[i] = new int[row.length()];
+                for (int j = 0; j < row.length(); j++) {
+                    loadedMatrix[i][j] = row.getInt(j);
+                }
+            }
+
+            this.model = new MapModel(loadedMatrix);
+            this.moveHistory.clear();
+            this.moveHistory.push(model.copyMatrix());
+            view.resetBoard(loadedMatrix);
+            view.updateMoveCount(moveCount);
+            view.requestFocusInWindow();
+
+            return true;
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(view, "Failed to load game: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+            return false;
+        }
+    }
 }
