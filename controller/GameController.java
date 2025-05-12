@@ -20,6 +20,7 @@ public class GameController {
     private MapModel model;
     private Stack<int[][]> moveHistory;
     private String currentUser;
+    private int currentLevel = 0;
 
     public GameController(GamePanel view, MapModel model) {
         this.moveHistory = new Stack<>();
@@ -39,8 +40,13 @@ public class GameController {
     }
     
     public void restartGame() {
-        // Reset to initial board state
-        this.model = new MapModel();
+        restartGame(currentLevel);
+    }
+
+    public void restartGame(int level) {
+        // Reset to specified level's initial board state
+        this.currentLevel = level;
+        this.model = new MapModel(level);
         this.moveCount = 0;
         this.moveHistory.clear();
         // Save initial state to allow undo back to start
@@ -48,6 +54,21 @@ public class GameController {
         view.resetBoard(model.getMatrix());
         view.updateMoveCount(0);
         view.requestFocusInWindow();
+    }
+
+    public void setLevel(int level) {
+        if (level >= 0 && level < MapModel.LEVELS.length) {
+            this.currentLevel = level;
+            restartGame(level);
+        }
+    }
+
+    public int getCurrentLevel() {
+        return currentLevel;
+    }
+
+    public int getLevelCount() {
+        return MapModel.LEVELS.length;
     }
 
     public boolean undoMove() {
@@ -178,10 +199,10 @@ public class GameController {
             
             // Check victory condition when CaoCao moves to exit position
             if (blockType == MapModel.CAO_CAO) {
-                System.out.println("\n=== VICTORY CHECK ===");
-                System.out.println("Board size: " + model.getWidth() + "x" + model.getHeight());
-                System.out.println("CaoCao moved to: [" + nextRow + "][" + nextCol + "]");
-                System.out.println("Direction: " + direction);
+                // System.out.println("\n=== VICTORY CHECK ===");
+                // System.out.println("Board size: " + model.getWidth() + "x" + model.getHeight());
+                // System.out.println("CaoCao moved to: [" + nextRow + "][" + nextCol + "]");
+                // System.out.println("Direction: " + direction);
                 
                 // Verify all 4 positions of CaoCao block (2x2)
                 boolean validPosition = true;
@@ -203,12 +224,6 @@ public class GameController {
                 // Victory occurs when CaoCao covers exit position (rows 3-4, columns 1-2)
                 // AND player presses DOWN key
                 boolean coversExitPosition = (nextRow == 3 && nextCol == 1);
-                
-                System.out.println("Exit position requirements:");
-                System.out.println("  Need row 3: " + (nextRow == 3 ? "OK" : "NO"));
-                System.out.println("  Need column 1: " + (nextCol == 1 ? "OK" : "NO"));
-                System.out.println("  Valid block positions: " + validPosition);
-                System.out.println("  Direction: " + direction);
                 
                 // Victory condition - CaoCao must cover exit position (row 3, col 1)
                 if (blockType == MapModel.CAO_CAO && nextRow == 3 && nextCol == 1) {
@@ -235,11 +250,11 @@ public class GameController {
                     }
                 }
                 
-                System.out.println("No victory - requirements:");
-                System.out.println("  Need to cover exit: " + (coversExitPosition ? "OK" : "NO"));
-                System.out.println("  Valid block: " + (validPosition ? "OK" : "NO"));
-                System.out.println("Current position: [" + nextRow + "][" + nextCol + "]");
-                System.out.println("Current board state:");
+                // System.out.println("No victory - requirements:");
+                // System.out.println("  Need to cover exit: " + (coversExitPosition ? "OK" : "NO"));
+                // System.out.println("  Valid block: " + (validPosition ? "OK" : "NO"));
+                // System.out.println("Current position: [" + nextRow + "][" + nextCol + "]");
+                // System.out.println("Current board state:");
                 for (int r = 0; r < model.getHeight(); r++) {
                     for (int c = 0; c < model.getWidth(); c++) {
                         System.out.printf("%2d ", model.getId(r, c));

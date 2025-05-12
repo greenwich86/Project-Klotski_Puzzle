@@ -41,17 +41,31 @@ public class GameFrame extends JFrame {
             throw e;
         }
 
+        // Create level selection buttons
+        int buttonX = gamePanel.getWidth() + 80;
+        int buttonY = 30;
+        for (int i = 0; i < 3; i++) {
+            final int level = i;
+            JButton levelBtn = FrameUtil.createButton(this, "Level " + (i+1), 
+                new Point(buttonX+180, buttonY), 80, 30);
+            levelBtn.addActionListener(e -> {
+                controller.setLevel(level);
+                gamePanel.requestFocusInWindow();
+            });
+            buttonY += 35;
+        }
+
         // Create undo button next to restart button
-        int buttonX = gamePanel.getWidth() + 30;
-        this.restartBtn = FrameUtil.createButton(this, "Restart", new Point(buttonX, 120), 80, 50);
-        JButton undoBtn = FrameUtil.createButton(this, "Undo", new Point(buttonX + 100, 120), 80, 50);
+        buttonY = 150;
+        this.restartBtn = FrameUtil.createButton(this, "Restart", new Point(buttonX, buttonY), 80, 50);
+        JButton undoBtn = FrameUtil.createButton(this, "Undo", new Point(buttonX + 100, buttonY), 80, 50);
         undoBtn.addActionListener(e -> {
             controller.undoMove();
             gamePanel.requestFocusInWindow();
         });
         // Create Save button next to Load button
-        this.loadBtn = FrameUtil.createButton(this, "Load", new Point(gamePanel.getWidth() + 80, 210), 80, 50);
-        JButton saveBtn = FrameUtil.createButton(this, "Save", new Point(gamePanel.getWidth() + 80, 280), 80, 50);
+        this.loadBtn = FrameUtil.createButton(this, "Load", new Point(gamePanel.getWidth() + 80, 220), 80, 50);
+        JButton saveBtn = FrameUtil.createButton(this, "Save", new Point(gamePanel.getWidth() + 80, 290), 80, 50);
         this.stepLabel = FrameUtil.createJLabel(this, "Start", new Font("serif", Font.ITALIC, 22), new Point(gamePanel.getWidth() + 80, 70), 180, 50);
         gamePanel.setStepLabel(stepLabel);
 
