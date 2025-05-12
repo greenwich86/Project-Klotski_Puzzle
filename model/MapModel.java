@@ -13,10 +13,12 @@ public class MapModel {
     public static final int GUAN_YU = 2;
     public static final int GENERAL = 3;
     public static final int SOLDIER = 4;
+    public static final int ZHOU_YU = 5; // 1x3 horizontal block
+    public static final int BLOCKED = 9; // Immovable obstacle
     
     int[][] matrix;
     public static final int[][][] LEVELS = {
-        // Level 1 - Original configuration
+        // Level 1 - Classic configuration (4x5)
         {
             {GENERAL, CAO_CAO, CAO_CAO, GENERAL},
             {GENERAL, CAO_CAO, CAO_CAO, GENERAL},
@@ -24,21 +26,24 @@ public class MapModel {
             {GENERAL, SOLDIER, SOLDIER, GENERAL},
             {GENERAL, GUAN_YU, GUAN_YU, GENERAL}
         },
-        // Level 2 - More challenging configuration
+        // Level 2 - Expert (5x6 with complex obstacles)
         {
-            {GENERAL, CAO_CAO, CAO_CAO, GENERAL},
-            {GENERAL, CAO_CAO, CAO_CAO, GENERAL},
-            {SOLDIER, 0, 0, SOLDIER},
-            {GENERAL, SOLDIER, SOLDIER, GENERAL},
-            {GENERAL, GUAN_YU, GUAN_YU, GENERAL}
+            {BLOCKED, CAO_CAO, CAO_CAO, BLOCKED, GENERAL, 0},
+            {BLOCKED, CAO_CAO, CAO_CAO, BLOCKED, GENERAL, 0},
+            {SOLDIER, BLOCKED, BLOCKED, SOLDIER, BLOCKED, SOLDIER},
+            {GENERAL, SOLDIER, SOLDIER, GENERAL, SOLDIER, BLOCKED},
+            {GENERAL, GUAN_YU, GUAN_YU, GENERAL, SOLDIER, 0},
+            {SOLDIER, BLOCKED, BLOCKED, SOLDIER, 0, 0}
         },
-        // Level 3 - Different block arrangement
+        // Level 3 - Master (6x7 with multiple challenges)
         {
-            {GENERAL, CAO_CAO, CAO_CAO, GENERAL},
-            {GENERAL, CAO_CAO, CAO_CAO, GENERAL},
-            {SOLDIER, 0, 0, SOLDIER},
-            {GENERAL, SOLDIER, SOLDIER, GENERAL},
-            {GENERAL, GUAN_YU, GUAN_YU, GENERAL}
+            {BLOCKED, CAO_CAO, CAO_CAO, BLOCKED, GENERAL, 0, 0},
+            {BLOCKED, CAO_CAO, CAO_CAO, BLOCKED, GENERAL, 0, 0},
+            {SOLDIER, BLOCKED, BLOCKED, SOLDIER, BLOCKED, SOLDIER, 0},
+            {GENERAL, SOLDIER, SOLDIER, GENERAL, SOLDIER, BLOCKED, 0},
+            {GENERAL, GUAN_YU, GUAN_YU, GENERAL, SOLDIER, 0, 0},
+            {SOLDIER, ZHOU_YU, ZHOU_YU, ZHOU_YU, SOLDIER, 0, 0},
+            {BLOCKED, 0, 0, BLOCKED, 0, 0, 0}
         }
     };
 
@@ -50,9 +55,11 @@ public class MapModel {
         if (level < 0 || level >= LEVELS.length) {
             level = 0;
         }
-        this.matrix = new int[5][4];
-        for (int i = 0; i < 5; i++) {
-            System.arraycopy(LEVELS[level][i], 0, this.matrix[i], 0, 4);
+        int rows = LEVELS[level].length;
+        int cols = LEVELS[level][0].length;
+        this.matrix = new int[rows][cols];
+        for (int i = 0; i < rows; i++) {
+            System.arraycopy(LEVELS[level][i], 0, this.matrix[i], 0, cols);
         }
     }
 

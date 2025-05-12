@@ -137,6 +137,11 @@ public class GameController {
         } else if (blockType == MapModel.GENERAL) { // 1x2 block
             width = 1;
             height = 2;
+        } else if (blockType == MapModel.ZHOU_YU) { // 1x3 block
+            width = 3;
+            height = 1;
+        } else if (blockType == MapModel.BLOCKED) { // Immovable
+            return false;
         } else { // Single square blocks
             width = 1;
             height = 1;

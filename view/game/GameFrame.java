@@ -19,61 +19,76 @@ public class GameFrame extends JFrame {
 
     public GameFrame(int width, int height, MapModel mapModel) {
         this.setTitle("2025 CS109 Project Demo");
-        this.setLayout(null);
+        this.setLayout(new BorderLayout());
         this.setSize(width, height);
+        this.setMinimumSize(new Dimension(800, 600));
         
-        // Debug model dimensions before creating GamePanel
-        System.out.println("GameFrame - Model dimensions: " + 
-            mapModel.getHeight() + "x" + mapModel.getWidth());
-        
+        // Main panel with game board
         try {
             gamePanel = new GamePanel(mapModel);
-            gamePanel.setLocation(30, height / 2 - gamePanel.getHeight() / 2);
-            this.add(gamePanel);
-//            System.err.println("Creating GameController...");
+            JScrollPane scrollPane = new JScrollPane(gamePanel);
+            scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+            scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+            this.add(scrollPane, BorderLayout.CENTER);
+            
             this.controller = new GameController(gamePanel, mapModel);
-//            System.err.println("Controller created: " + controller);
-            this.controller.restartGame(); // Initialize game state
-            gamePanel.requestFocusInWindow(); // Ensure focus for key events
+            this.controller.restartGame();
+            gamePanel.requestFocusInWindow();
         } catch (Exception e) {
             System.err.println("Error creating GamePanel:");
             e.printStackTrace();
             throw e;
         }
 
-        // Create level selection buttons
-        int buttonX = gamePanel.getWidth() + 80;
-        int buttonY = 30;
+        // Control panel on the right
+        JPanel controlPanel = new JPanel();
+        controlPanel.setLayout(new BoxLayout(controlPanel, BoxLayout.Y_AXIS));
+        controlPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        
+        // Step counter
+        this.stepLabel = new JLabel("Start");
+        stepLabel.setFont(new Font("serif", Font.ITALIC, 22));
+        stepLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        controlPanel.add(stepLabel);
+        controlPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+        gamePanel.setStepLabel(stepLabel);
+
+        // Level buttons
+        JPanel levelPanel = new JPanel();
+        levelPanel.setLayout(new BoxLayout(levelPanel, BoxLayout.Y_AXIS));
+        levelPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
         for (int i = 0; i < 3; i++) {
             final int level = i;
-            JButton levelBtn = FrameUtil.createButton(this, "Level " + (i+1), 
-                new Point(buttonX+180, buttonY), 80, 30);
+            JButton levelBtn = new JButton("Level " + (i+1));
+            levelBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
             levelBtn.addActionListener(e -> {
                 controller.setLevel(level);
                 gamePanel.requestFocusInWindow();
             });
-            buttonY += 35;
+            levelPanel.add(levelBtn);
+            levelPanel.add(Box.createRigidArea(new Dimension(0, 5)));
         }
+        controlPanel.add(levelPanel);
+        controlPanel.add(Box.createRigidArea(new Dimension(0, 20)));
 
-        // Create undo button next to restart button
-        buttonY = 150;
-        this.restartBtn = FrameUtil.createButton(this, "Restart", new Point(buttonX, buttonY), 80, 50);
-        JButton undoBtn = FrameUtil.createButton(this, "Undo", new Point(buttonX + 100, buttonY), 80, 50);
+        // Action buttons
+        this.restartBtn = new JButton("Restart");
+        restartBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        restartBtn.addActionListener(e -> {
+            controller.restartGame();
+            gamePanel.requestFocusInWindow();
+        });
+        
+        JButton undoBtn = new JButton("Undo");
+        undoBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         undoBtn.addActionListener(e -> {
             controller.undoMove();
             gamePanel.requestFocusInWindow();
         });
-        // Create Save button next to Load button
-        this.loadBtn = FrameUtil.createButton(this, "Load", new Point(gamePanel.getWidth() + 80, 220), 80, 50);
-        JButton saveBtn = FrameUtil.createButton(this, "Save", new Point(gamePanel.getWidth() + 80, 290), 80, 50);
-        this.stepLabel = FrameUtil.createJLabel(this, "Start", new Font("serif", Font.ITALIC, 22), new Point(gamePanel.getWidth() + 80, 70), 180, 50);
-        gamePanel.setStepLabel(stepLabel);
-
-        this.restartBtn.addActionListener(e -> {
-            controller.restartGame();
-            gamePanel.requestFocusInWindow();//enable key listener
-        });
-        this.loadBtn.addActionListener(e -> {
+        
+        this.loadBtn = new JButton("Load");
+        loadBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        loadBtn.addActionListener(e -> {
             if (guestMode) {
                 JOptionPane.showMessageDialog(this, "Guest users cannot load games");
             } else {
@@ -81,6 +96,9 @@ public class GameFrame extends JFrame {
                 gamePanel.requestFocusInWindow();
             }
         });
+        
+        JButton saveBtn = new JButton("Save");
+        saveBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         saveBtn.addActionListener(e -> {
             if (guestMode) {
                 JOptionPane.showMessageDialog(this, "Guest users cannot save games");
@@ -89,7 +107,16 @@ public class GameFrame extends JFrame {
                 gamePanel.requestFocusInWindow();
             }
         });
-        //todo: add other button here
+        
+        controlPanel.add(restartBtn);
+        controlPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+        controlPanel.add(undoBtn);
+        controlPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+        controlPanel.add(loadBtn);
+        controlPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+        controlPanel.add(saveBtn);
+        
+        this.add(controlPanel, BorderLayout.EAST);
         this.setLocationRelativeTo(null);
         
         // Add window listener to handle focus when frame becomes active

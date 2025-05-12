@@ -10,12 +10,18 @@ public class BoxComponent extends JComponent {
     private int row;
     private int col;
     private boolean isSelected;
+    private boolean movable;
 
     public BoxComponent(Color color, int row, int col) {
+        this(color, row, col, true);
+    }
+
+    public BoxComponent(Color color, int row, int col, boolean movable) {
         this.color = color;
         this.row = row;
         this.col = col;
-        isSelected = false;
+        this.isSelected = false;
+        this.movable = movable;
     }
 
     @Override
@@ -51,6 +57,10 @@ public class BoxComponent extends JComponent {
             name = "\u5C06\u519B"; // 将军 (General)
         } else if (color.equals(Color.GREEN)) {
             name = "\u58EB\u5175"; // 士兵 (Soldier)
+        } else if (color.equals(Color.MAGENTA)) {
+            name = "\u5468\u745E"; // 周瑜 (Zhou Yu)
+        } else if (color.equals(Color.DARK_GRAY)) {
+            name = "\u969C\u788D"; // 障碍 (Obstacle)
         }
         
         // Draw text with positioning
@@ -106,5 +116,14 @@ public class BoxComponent extends JComponent {
 
     public void setCol(int col) {
         this.col = col;
+    }
+
+    public boolean isMovable() {
+        return movable;
+    }
+
+    public void setMovable(boolean movable) {
+        this.movable = movable;
+        this.repaint();
     }
 }
