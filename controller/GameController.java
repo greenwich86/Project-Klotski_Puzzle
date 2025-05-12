@@ -6,8 +6,10 @@ import model.Direction;
 import model.MapModel;
 import view.game.BoxComponent;
 import view.game.GamePanel;
+import java.awt.Color;
 import java.io.*;
-import org.json.*;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 /**
  * It is a bridge to combine GamePanel(view) and MapMatrix(model) in one game.
@@ -165,11 +167,85 @@ public class GameController {
                 // Force view refresh to ensure proper state
                 view.resetBoard(model.getMatrix());
             
-            // Check victory condition (Cao Cao at exit position - bottom row)
-            if (blockType == MapModel.CAO_CAO && 
-                nextRow == model.getHeight() - 1 &&  // Bottom row (row 4 in 5-row board)
-                nextCol == 1) {  // Columns 1-2 (2x2 block)
-                showVictory();
+            // Debug output for movement
+            System.out.printf("Moving block %d to [%d][%d] (model size %dx%d)\n",
+                blockType, nextRow, nextCol, model.getWidth(), model.getHeight());
+
+            // Check victory condition (Cao Cao covering exit position)
+            // Debug victory condition check
+            System.out.printf("Checking victory for block %d at [%d][%d] (model size %dx%d)\n",
+                blockType, nextRow, nextCol, model.getWidth(), model.getHeight());
+            
+            // Check victory condition when CaoCao moves to exit position
+            if (blockType == MapModel.CAO_CAO) {
+                System.out.println("\n=== VICTORY CHECK ===");
+                System.out.println("Board size: " + model.getWidth() + "x" + model.getHeight());
+                System.out.println("CaoCao moved to: [" + nextRow + "][" + nextCol + "]");
+                System.out.println("Direction: " + direction);
+                
+                // Verify all 4 positions of CaoCao block (2x2)
+                boolean validPosition = true;
+                for (int r = nextRow; r < nextRow + 2; r++) {
+                    for (int c = nextCol; c < nextCol + 2; c++) {
+                        if (r >= model.getHeight() || c >= model.getWidth() || 
+                            model.getId(r, c) != MapModel.CAO_CAO) {
+                            validPosition = false;
+                            System.out.printf("  [%d][%d]: %s (expected CAO_CAO)\n",
+                                r, c, 
+                                r >= model.getHeight() || c >= model.getWidth() ? 
+                                "OUT_OF_BOUNDS" : model.getId(r, c));
+                        } else {
+                            System.out.printf("  [%d][%d]: OK\n", r, c);
+                        }
+                    }
+                }
+                
+                // Victory occurs when CaoCao covers exit position (rows 3-4, columns 1-2)
+                // AND player presses DOWN key
+                boolean coversExitPosition = (nextRow == 3 && nextCol == 1);
+                
+                System.out.println("Exit position requirements:");
+                System.out.println("  Need row 3: " + (nextRow == 3 ? "OK" : "NO"));
+                System.out.println("  Need column 1: " + (nextCol == 1 ? "OK" : "NO"));
+                System.out.println("  Valid block positions: " + validPosition);
+                System.out.println("  Direction: " + direction);
+                
+                // Victory condition - CaoCao must cover exit position (row 3, col 1)
+                if (blockType == MapModel.CAO_CAO && nextRow == 3 && nextCol == 1) {
+                    // Additional check that all 4 CaoCao positions are valid
+                    boolean allPositionsValid = true;
+                    for (int r = nextRow; r < nextRow + 2; r++) {
+                        for (int c = nextCol; c < nextCol + 2; c++) {
+                            if (model.getId(r, c) != MapModel.CAO_CAO) {
+                                allPositionsValid = false;
+                                break;
+                            }
+                        }
+                        if (!allPositionsValid) break;
+                    }
+                    
+                    if (allPositionsValid) {
+                        System.out.println("***** VICTORY! CaoCao at exit position with DOWN press *****");
+                        System.out.println("CaoCao covers:");
+                        System.out.println("  [3][1] - [3][2]");
+                        System.out.println("  [4][1] - [4][2]");
+                        
+                        showVictory();
+                        return true;
+                    }
+                }
+                
+                System.out.println("No victory - requirements:");
+                System.out.println("  Need to cover exit: " + (coversExitPosition ? "OK" : "NO"));
+                System.out.println("  Valid block: " + (validPosition ? "OK" : "NO"));
+                System.out.println("Current position: [" + nextRow + "][" + nextCol + "]");
+                System.out.println("Current board state:");
+                for (int r = 0; r < model.getHeight(); r++) {
+                    for (int c = 0; c < model.getWidth(); c++) {
+                        System.out.printf("%2d ", model.getId(r, c));
+                    }
+                    System.out.println();
+                }
             }
             return true;
         }
@@ -177,10 +253,31 @@ public class GameController {
     }
 
     private void showVictory() {
+        // More prominent victory feedback
+        for (int i = 0; i < 5; i++) {
+            // Flash exit and highlight CaoCao
+            view.highlightExit(true);
+            view.highlightCaoCao(true);
+            try { Thread.sleep(200); } catch (InterruptedException e) {}
+            
+            // Flash entire panel background
+            view.setBackground(Color.YELLOW);
+            view.repaint();
+            try { Thread.sleep(200); } catch (InterruptedException e) {}
+            
+            view.highlightExit(false);
+            view.highlightCaoCao(false);
+            view.setBackground(Color.LIGHT_GRAY);
+            view.repaint();
+            try { Thread.sleep(200); } catch (InterruptedException e) {}
+        }
+        
+        // More prominent victory message
         JOptionPane.showMessageDialog(view, 
-            String.format("Congratulations! You won in %d moves!", moveCount),
-            "Victory!",
+            String.format("<html><h1>VICTORY!</h1><br>You won in %d moves!</html>", moveCount),
+            "Klotski Puzzle Solved!",
             JOptionPane.INFORMATION_MESSAGE);
+            
         restartGame();
     }
 

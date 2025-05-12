@@ -84,8 +84,12 @@ public class BoxComponent extends JComponent {
     }
 
     public void setSelected(boolean selected) {
-        isSelected = selected;
+        this.isSelected = selected;
         this.repaint();
+    }
+
+    public Color getColor() {
+        return this.color;
     }
 
     public int getRow() {
