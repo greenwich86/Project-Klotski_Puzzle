@@ -22,6 +22,7 @@ public class GamePanel extends ListenerPanel {
     private int steps;
     private int GRID_SIZE;
     private BoxComponent selectedBox;
+    private int initialLevel = 0; // Default to level 1
 
     public GamePanel(MapModel model) {
         boxes = new ArrayList<>();
@@ -141,12 +142,30 @@ public class GamePanel extends ListenerPanel {
                     // Calculate position with dynamic padding
                     int panelWidth = this.getWidth();
                     int panelHeight = this.getHeight();
+                    
+                    // Unified offset calculation with level-specific adjustments
                     int xOffset = (panelWidth - boardWidth) / 2;
-                    int yOffset = (panelHeight - boardHeight - GRID_SIZE) / 3; // Adjusted vertical centering
+                    int yOffset = (panelHeight - boardHeight - GRID_SIZE) / 3;
+                    
+                    // Level-specific fine-tuning
+                    int currentLevel = (controller != null) ? controller.getCurrentLevel() : initialLevel;
+                    switch(currentLevel) {
+                        case 0: // Level 1
+                            xOffset += 15;
+                            yOffset -= 10;
+                            break;
+                        case 1: // Level 2
+                            xOffset += 5;
+                            yOffset -= 5;
+                            break;
+                        case 2: // Level 3
+                            yOffset -= 3;
+                            break;
+                    }
                     
                     // Ensure minimum padding
-                    if (xOffset < 10) xOffset = 10;
-                    if (yOffset < 10) yOffset = 10;
+                    xOffset = Math.max(20, xOffset);
+                    yOffset = Math.max(20, yOffset);
                     
                     // Calculate precise position accounting for block type
                     int x = xOffset + j * GRID_SIZE;
@@ -311,19 +330,29 @@ public class GamePanel extends ListenerPanel {
         int boardWidth = model.getWidth() * GRID_SIZE;
         int boardHeight = model.getHeight() * GRID_SIZE;
         
-        // Calculate position accounting for level dimensions
+        // Unified offset calculation with level-specific adjustments
         int xOffset = (this.getWidth() - boardWidth) / 2;
-        int yOffset;
+        int yOffset = (this.getHeight() - boardHeight - GRID_SIZE) / 3;
         
-        // Special handling for level 3 (5x4 grid)
-        if (model.getWidth() == 5 && model.getHeight() == 4) {
-            // Precise calculation for level 3 (5x4 grid) with higher positioning
-            yOffset = (this.getHeight() - boardHeight - GRID_SIZE) / 3;
-            // Additional upward adjustment
-            yOffset = Math.max(10, yOffset - 8);
-        } else {
-            yOffset = (this.getHeight() - boardHeight - GRID_SIZE) / 3;
+        // Level-specific fine-tuning
+        int currentLevel = (controller != null) ? controller.getCurrentLevel() : initialLevel;
+        switch(currentLevel) {
+            case 0: // Level 1
+                xOffset += 15;
+                yOffset -= 10;
+                break;
+            case 1: // Level 2
+                xOffset += 5;
+                yOffset -= 5;
+                break;
+            case 2: // Level 3
+                yOffset -= 8;
+                break;
         }
+        
+        // Ensure minimum margins
+        xOffset = Math.max(20, xOffset);
+        yOffset = Math.max(20, yOffset);
         
         // Draw background with level-specific adjustments
         g2d.setColor(new Color(240, 240, 255)); // Light blue-gray
