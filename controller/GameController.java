@@ -20,12 +20,17 @@ public class GameController {
     private MapModel model;
     private Stack<int[][]> moveHistory;
     private String currentUser;
+<<<<<<< Updated upstream
     private int currentLevel = 0;
+=======
+    private int currentLevel;
+>>>>>>> Stashed changes
 
     public GameController(GamePanel view, MapModel model) {
         this.moveHistory = new Stack<>();
         this.view = view;
         this.model = model;
+        this.currentLevel = 0; // Default to first level
         view.setController(this);
     }
 
@@ -38,6 +43,21 @@ public class GameController {
     public void setCurrentUser(String username) {
         this.currentUser = username;
     }
+<<<<<<< Updated upstream
+=======
+
+    public void setLevel(int level) {
+        // Reset game with specified level
+        this.currentLevel = level;
+        this.model = new MapModel(level);
+        this.moveCount = 0;
+        this.moveHistory.clear();
+        moveHistory.push(model.copyMatrix());
+        view.resetBoard(model.getMatrix());
+        view.updateMoveCount(0);
+        view.requestFocusInWindow();
+    }
+>>>>>>> Stashed changes
     
     public void restartGame() {
         restartGame(currentLevel);
@@ -327,6 +347,10 @@ public class GameController {
             JOptionPane.showMessageDialog(view, "Failed to save game: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
         }
+    }
+
+    public int getCurrentLevel() {
+        return currentLevel;
     }
 
     public boolean loadGame() {
