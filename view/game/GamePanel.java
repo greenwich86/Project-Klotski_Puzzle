@@ -384,20 +384,7 @@ public class GamePanel extends ListenerPanel {
         int textX = exitX + (exitWidth - fm.stringWidth(exitText))/2;
         int textY = exitY + GRID_SIZE/2 + fm.getAscent()/2;
         g.drawString(exitText, textX, textY);
-
-        // Highlight CaoCao block if needed
-        if (caoHighlighted) {
-            for (BoxComponent box : boxes) {
-                if (box.getColor() == Color.RED) { // CaoCao is red
-                    // Highlight Cao Cao block with better visible color
-                    g.setColor(new Color(255, 215, 0, 180)); // Gold color with more opacity
-                    int padding = GRID_SIZE/8;
-                    g.fillRect(box.getX()+padding, box.getY()+padding, 
-                              box.getWidth()-padding*2, box.getHeight()-padding*2);
-                }
-            }
-        }
-
+        
         Border border = BorderFactory.createLineBorder(Color.DARK_GRAY, 2);
         this.setBorder(border);
     }
