@@ -70,6 +70,8 @@ public class GamePanel extends ListenerPanel {
      */
     public void initialGame() {
         this.steps = 0;
+        // Default to level 0 if controller not set yet
+        int level = (controller != null) ? controller.getCurrentLevel() : 0;
         // Debug model dimensions and contents
         // System.out.println("Initializing game with model dimensions: " + 
         //     model.getHeight() + "x" + model.getWidth());
@@ -138,15 +140,13 @@ public class GamePanel extends ListenerPanel {
                     // Calculate precisely centered position
                     int boardWidth = model.getWidth() * GRID_SIZE;
                     int boardHeight = model.getHeight() * GRID_SIZE;
-                    // Calculate position with dynamic padding
-                    int panelWidth = this.getWidth();
-                    int panelHeight = this.getHeight();
-                    int xOffset = (panelWidth - boardWidth) / 2;
-                    int yOffset = (panelHeight - boardHeight - GRID_SIZE) / 3; // Adjusted vertical centering
-                    
-                    // Ensure minimum padding
-                    if (xOffset < 10) xOffset = 10;
-                    if (yOffset < 10) yOffset = 10;
+        // Calculate consistent offsets based on panel and board dimensions
+        int xOffset = (this.getWidth() - boardWidth) / 2;
+        int yOffset = (this.getHeight() - boardHeight - GRID_SIZE) / 3; // Account for exit space
+        
+        // Ensure minimum margins
+        xOffset = Math.max(20, xOffset);
+        yOffset = Math.max(20, yOffset);
                     
                     // Calculate precise position accounting for block type
                     int x = xOffset + j * GRID_SIZE;
@@ -167,6 +167,15 @@ public class GamePanel extends ListenerPanel {
                     box.setLocation(x, y);
                     boxes.add(box);
                     this.add(box);
+                    
+                    // Debug visualization - draw grid coordinates
+                    if (controller != null && controller.isDebugMode()) {
+                        JLabel coordLabel = new JLabel(String.format("%d,%d", i, j));
+                        coordLabel.setBounds(x, y, GRID_SIZE, GRID_SIZE);
+                        coordLabel.setForeground(Color.BLUE);
+                        coordLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 10));
+                        this.add(coordLabel);
+                    }
                     // Mark all occupied cells as processed
                     for (int r = i; r < i + box.getHeight()/GRID_SIZE; r++) {
                         for (int c = j; c < j + box.getWidth()/GRID_SIZE; c++) {
@@ -272,6 +281,14 @@ public class GamePanel extends ListenerPanel {
     public int getGRID_SIZE() {
         return GRID_SIZE;
     }
+    
+    public MapModel getModel() {
+        return model;
+    }
+    
+    public int getCurrentLevel() {
+        return controller.getCurrentLevel();
+    }
 
     public void resetBoard(int[][] newMatrix) {
         // Clear existing boxes
@@ -311,19 +328,13 @@ public class GamePanel extends ListenerPanel {
         int boardWidth = model.getWidth() * GRID_SIZE;
         int boardHeight = model.getHeight() * GRID_SIZE;
         
-        // Calculate position accounting for level dimensions
+        // Calculate consistent offsets based on panel and board dimensions
         int xOffset = (this.getWidth() - boardWidth) / 2;
-        int yOffset;
+        int yOffset = (this.getHeight() - boardHeight - GRID_SIZE) / 3; // Account for exit space
         
-        // Special handling for level 3 (5x4 grid)
-        if (model.getWidth() == 5 && model.getHeight() == 4) {
-            // Precise calculation for level 3 (5x4 grid) with higher positioning
-            yOffset = (this.getHeight() - boardHeight - GRID_SIZE) / 3;
-            // Additional upward adjustment
-            yOffset = Math.max(10, yOffset - 8);
-        } else {
-            yOffset = (this.getHeight() - boardHeight - GRID_SIZE) / 3;
-        }
+        // Ensure minimum margins
+        xOffset = Math.max(20, xOffset);
+        yOffset = Math.max(20, yOffset);
         
         // Draw background with level-specific adjustments
         g2d.setColor(new Color(240, 240, 255)); // Light blue-gray
