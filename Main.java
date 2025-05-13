@@ -11,8 +11,7 @@ public class Main {
         SwingUtilities.invokeLater(() -> {
             LoginFrame loginFrame = new LoginFrame(280, 280);
             loginFrame.setVisible(true);
-            // Initialize with level 1 (index 0)
-            MapModel mapModel = new MapModel(0);
+            MapModel mapModel = new MapModel();
             GameFrame gameFrame = new GameFrame(600, 450, mapModel);
             gameFrame.setVisible(false);
             loginFrame.setGameFrame(gameFrame);

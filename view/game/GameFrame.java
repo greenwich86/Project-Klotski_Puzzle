@@ -25,15 +25,15 @@ public class GameFrame extends JFrame {
         
         // Main panel with game board
         try {
-            // Use the passed model (should be initialized to level 1)
             gamePanel = new GamePanel(mapModel);
             JScrollPane scrollPane = new JScrollPane(gamePanel);
             scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
             scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
             this.add(scrollPane, BorderLayout.CENTER);
             
-        this.controller = new GameController(gamePanel, gamePanel.getModel());
-        gamePanel.requestFocusInWindow();
+            this.controller = new GameController(gamePanel, mapModel);
+            this.controller.restartGame();
+            gamePanel.requestFocusInWindow();
         } catch (Exception e) {
             System.err.println("Error creating GamePanel:");
             e.printStackTrace();
