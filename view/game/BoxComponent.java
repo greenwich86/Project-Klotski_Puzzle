@@ -11,9 +11,12 @@ public class BoxComponent extends JComponent {
     private int col;
     private boolean isSelected;
     private boolean movable;
+<<<<<<< HEAD
     private boolean isAnimating;
     private float scale = 1.0f;
     private Color shadowColor;
+=======
+>>>>>>> parent of 31c8865 (AniamtionHandler)
 
     public BoxComponent(Color color, int row, int col) {
         this(color, row, col, true);
@@ -133,18 +136,19 @@ public class BoxComponent extends JComponent {
         return row;
     }
 
-    public int getCol() {
-        return col;
-    }
-
     public void setRow(int row) {
         this.row = row;
+    }
+
+    public int getCol() {
+        return col;
     }
 
     public void setCol(int col) {
         this.col = col;
     }
 
+<<<<<<< HEAD
     public boolean isAnimating() {
         return isAnimating;
     }
@@ -163,6 +167,8 @@ public class BoxComponent extends JComponent {
         this.repaint();
     }
 
+=======
+>>>>>>> parent of 31c8865 (AniamtionHandler)
     public boolean isMovable() {
         return movable;
     }
