@@ -12,6 +12,8 @@ public class BoxComponent extends JComponent {
     private boolean isSelected;
     private boolean movable;
     private boolean isAnimating;
+    private float scale = 1.0f;
+    private Color shadowColor;
 
     public BoxComponent(Color color, int row, int col) {
         this(color, row, col, true);
@@ -28,13 +30,35 @@ public class BoxComponent extends JComponent {
     @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
-        g.setColor(color);
-        g.fillRect(0, 0, getWidth(), getHeight());
+        Graphics2D g2d = (Graphics2D)g.create();
+        
+        // Debug output for position verification
+//        System.out.printf("Painting BoxComponent at (%d,%d) size %dx%d (row=%d,col=%d)\n",
+//            getX(), getY(), getWidth(), getHeight(), row, col);
+            
+        // Apply scaling transformation
+        if (scale != 1.0f) {
+            int centerX = getWidth() / 2;
+            int centerY = getHeight() / 2;
+            g2d.translate(centerX, centerY);
+            g2d.scale(scale, scale);
+            g2d.translate(-centerX, -centerY);
+        }
+
+        // Draw more pronounced shadow if set
+        if (shadowColor != null) {
+            g2d.setColor(shadowColor);
+            g2d.fillRoundRect(5, 8, getWidth(), getHeight(), 10, 10); // Larger, softer shadow
+        }
+
+        // Draw main component
+        g2d.setColor(color);
+        g2d.fillRect(0, 0, getWidth(), getHeight());
         
         // Set text color and font - use high contrast colors
         Color textColor = color.getRed() + color.getGreen() + color.getBlue() > 382 ? 
                          Color.BLACK : Color.WHITE;
-        g.setColor(textColor);
+        g2d.setColor(textColor);
         
         // Calculate dynamic font size based on component dimensions
         int fontSize = Math.min(getWidth(), getHeight()) / 3;
@@ -75,14 +99,16 @@ public class BoxComponent extends JComponent {
                   fm.stringWidth(name)+4, fm.getHeight()+4);
         
         // Draw the text
-        g.setColor(textColor);
-        g.drawString(name, x, y);
+        g2d.setColor(textColor);
+        g2d.drawString(name, x, y);
         
         // Draw debug outlines
-        g.setColor(Color.RED);
-        g.drawRect(0, 0, getWidth()-1, getHeight()-1);
-        g.drawRect(x-2, y-fm.getAscent()-2, 
+        g2d.setColor(Color.RED);
+        g2d.drawRect(0, 0, getWidth()-1, getHeight()-1);
+        g2d.drawRect(x-2, y-fm.getAscent()-2, 
                   fm.stringWidth(name)+4, fm.getHeight()+4);
+        
+        g2d.dispose();
         
         // Set selection border
         Border border;
@@ -125,6 +151,16 @@ public class BoxComponent extends JComponent {
 
     public void setAnimating(boolean animating) {
         this.isAnimating = animating;
+    }
+
+    public void setScale(float scale) {
+        this.scale = scale;
+        this.repaint();
+    }
+
+    public void setShadowColor(Color shadowColor) {
+        this.shadowColor = shadowColor;
+        this.repaint();
     }
 
     public boolean isMovable() {
