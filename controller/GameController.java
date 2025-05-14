@@ -4,9 +4,9 @@ import java.util.Stack;
 import javax.swing.JOptionPane;
 import model.Direction;
 import model.MapModel;
+import view.game.AnimationHandler;
 import view.game.BoxComponent;
 import view.game.GamePanel;
-import view.game.AnimationHandler;
 import java.awt.Color;
 import java.io.*;
 import org.json.JSONArray;
@@ -128,9 +128,9 @@ public class GameController {
         int blockType = model.getId(row, col);
         // System.err.println("Block type: "+blockType);
 
-        // Determine block dimensions based on type (must be final for use in Runnable)
-        final int width;
-        final int height;
+        // Determine block dimensions based on type
+        int width = 1;
+        int height = 1;
 
         if (blockType == MapModel.CAO_CAO) { // 2x2 block
             width = 2;
@@ -157,115 +157,152 @@ public class GameController {
         boolean canMove = canMove(row, col, width, height, direction);
         // System.err.println("Can move result: " + canMove);
         if (canMove) {
-            // Get the block component and update its position immediately
-            BoxComponent box = view.getSelectedBox();
-            if (box == null) {
-                System.err.println("No block selected for movement");
-                return false;
-            }
-            box.setAnimating(true);
-            
-            // Calculate target position in model coordinates
+            // Calculate new top-left position
             int nextRow = row + direction.getRow();
             int nextCol = col + direction.getCol();
-            
-            System.out.printf("RIGHT movement validation - current: [%d,%d] target: [%d,%d] block size: %dx%d\n",
-                col, row, nextCol, nextRow, width, height);
-            
-            // Validate new position stays within board bounds
-            if (nextRow < 0 || nextCol < 0 || 
-                nextRow + height > model.getHeight() || 
-                nextCol + width > model.getWidth()) {
-                return false;
-            }
-            
-            // Calculate target position in absolute coordinates
-            int targetX = nextCol * view.getGRID_SIZE();
-            int targetY = nextRow * view.getGRID_SIZE();
-            
-            // Verify position is within game board bounds
-            if (targetX < 0 || targetY < 0 || 
-                targetX >= view.getGameBoardWidth() - box.getWidth() ||
-                targetY >= view.getGameBoardHeight() - box.getHeight()) {
-                System.err.println("Invalid target position: " + targetX + "," + targetY);
-                return false;
-            }
-            
-            // Verify grid size is correct
-            System.out.printf("Grid size: %d, Block size: %dx%d\n",
-                view.getGRID_SIZE(), box.getWidth(), box.getHeight());
-            
-            // Debug output to verify coordinates
-            System.out.printf("Moving block from [%d,%d] to [%d,%d] (pixels: %d,%d)\n",
-                col, row, nextCol, nextRow, targetX, targetY);
-            
-            // Update model first before animation starts
+
+            // Move the block by clearing old positions and setting new ones
             for (int r = row; r < row + height; r++) {
                 for (int c = col; c < col + width; c++) {
                     model.getMatrix()[r][c] = 0;
                 }
             }
-            for (int r = nextRow; r < nextRow + height; r++) {
-                for (int c = nextCol; c < nextCol + width; c++) {
-                    model.getMatrix()[r][c] = blockType;
+            for (int r = row; r < row + height; r++) {
+                for (int c = col; c < col + width; c++) {
+                    model.getMatrix()[r + direction.getRow()][c + direction.getCol()] = blockType;
                 }
             }
-            
-            // Update box component state immediately
+
+            final BoxComponent box = view.getSelectedBox();
             box.setRow(nextRow);
             box.setCol(nextCol);
             
-            System.out.printf("Creating animation - targetX: %d, targetY: %d, direction: %s\n",
-                targetX, targetY, direction);
+            // Calculate grid positions properly
+            int xOffset = (view.getWidth() - model.getWidth() * view.getGRID_SIZE()) / 2;
+            int yOffset = (view.getHeight() - model.getHeight() * view.getGRID_SIZE() - view.getGRID_SIZE()) / 3;
+            if (xOffset < 10) xOffset = 10;
+            if (yOffset < 10) yOffset = 10;
             
-            // Create animation with direction-aware movement
-            new AnimationHandler(box, targetX, targetY, direction, new Runnable() {
-                @Override
-                public void run() {
-                    // Update model with new positions
-                    for (int r = nextRow; r < nextRow + height; r++) {
-                        for (int c = nextCol; c < nextCol + width; c++) {
-                            model.getMatrix()[r][c] = blockType;
-                        }
-                    }
-                    
-                    // Update box component state
-                    box.setRow(nextRow);
-                    box.setCol(nextCol);
+            // Calculate precise target position within the grid
+            int targetX = xOffset + nextCol * view.getGRID_SIZE();
+            int targetY = yOffset + nextRow * view.getGRID_SIZE();
+            
+            // Safety checks to ensure targets are within reasonable bounds
+            if (targetX < 0) targetX = 0;
+            if (targetY < 0) targetY = 0;
+            if (targetX > view.getWidth() - box.getWidth()) targetX = view.getWidth() - box.getWidth();
+            if (targetY > view.getHeight() - box.getHeight()) targetY = view.getHeight() - box.getHeight();
+            
+            box.setAnimating(true);
+            
+            // Use a slower duration for more noticeable animation
+            int animationDuration = 150;
+            
+            // Use bounce easing for more satisfying movement
+            AnimationHandler.EasingType easing = AnimationHandler.EasingType.EASE_OUT_QUAD;
+            
+            AnimationHandler animation = new AnimationHandler(
+                box, 
+                targetX, 
+                targetY, 
+                animationDuration, 
+                () -> {
                     box.setAnimating(false);
                     
-                    // Save game state
+                    // Special handling for general blocks (1x2) after animation completes
+                    if (blockType == MapModel.GENERAL) {
+                        // Update both positions in the model
+                        model.getMatrix()[nextRow][nextCol] = blockType;
+                        model.getMatrix()[nextRow + 1][nextCol] = blockType;
+                        // Force full panel repaint
+                        view.resetBoard(model.getMatrix());
+                        view.repaint();
+                    } else {
+                        box.repaint();
+                    }
+                    
+                    // Save state after move and update count
                     moveHistory.push(model.copyMatrix());
                     moveCount++;
                     view.updateMoveCount(moveCount);
                     
-                    // Refresh view
-                    view.resetBoard(model.getMatrix());
-                    view.repaint();
-                    
                     // Check victory condition
-                    if (blockType == MapModel.CAO_CAO && nextRow == 3 && nextCol == 1) {
-                        boolean victory = true;
-                        for (int r = nextRow; r < nextRow + 2; r++) {
-                            for (int c = nextCol; c < nextCol + 2; c++) {
-                                if (model.getId(r, c) != MapModel.CAO_CAO) {
-                                    victory = false;
-                                    break;
-                                }
-                            }
-                            if (!victory) break;
-                        }
-                        
-                        if (victory) {
-                            showVictory();
-                        }
-                    }
-                }
-            }).start();
+                    checkVictoryCondition(blockType, nextRow, nextCol);
+                },
+                easing  // Pass easing type as the last parameter
+            );
+            animation.start();
             
+            // Return early since the animation's onComplete will handle the rest
             return true;
+
         }
         return false;
+    }
+    
+    private void checkVictoryCondition(int blockType, int nextRow, int nextCol) {
+        // Debug output for movement
+        System.out.printf("Moving block %d to [%d][%d] (model size %dx%d)\n",
+                blockType, nextRow, nextCol, model.getWidth(), model.getHeight());
+
+        // Check victory condition (Cao Cao covering exit position)
+        // Debug victory condition check
+        System.out.printf("Checking victory for block %d at [%d][%d] (model size %dx%d)\n",
+                blockType, nextRow, nextCol, model.getWidth(), model.getHeight());
+
+        // Check victory condition when CaoCao moves to exit position
+        if (blockType == MapModel.CAO_CAO) {
+            // Verify all 4 positions of CaoCao block (2x2)
+            boolean validPosition = true;
+            for (int r = nextRow; r < nextRow + 2; r++) {
+                for (int c = nextCol; c < nextCol + 2; c++) {
+                    if (r >= model.getHeight() || c >= model.getWidth() ||
+                            model.getId(r, c) != MapModel.CAO_CAO) {
+                        validPosition = false;
+                        System.out.printf("  [%d][%d]: %s (expected CAO_CAO)\n",
+                                r, c,
+                                r >= model.getHeight() || c >= model.getWidth() ?
+                                        "OUT_OF_BOUNDS" : model.getId(r, c));
+                    } else {
+                        System.out.printf("  [%d][%d]: OK\n", r, c);
+                    }
+                }
+            }
+
+            // Victory occurs when CaoCao covers exit position (rows 3-4, columns 1-2)
+            boolean coversExitPosition = (nextRow == 3 && nextCol == 1);
+
+            // Victory condition - CaoCao must cover exit position (row 3, col 1)
+            if (blockType == MapModel.CAO_CAO && nextRow == 3 && nextCol == 1) {
+                // Additional check that all 4 CaoCao positions are valid
+                boolean allPositionsValid = true;
+                for (int r = nextRow; r < nextRow + 2; r++) {
+                    for (int c = nextCol; c < nextCol + 2; c++) {
+                        if (model.getId(r, c) != MapModel.CAO_CAO) {
+                            allPositionsValid = false;
+                            break;
+                        }
+                    }
+                    if (!allPositionsValid) break;
+                }
+
+                if (allPositionsValid) {
+                    System.out.println("***** VICTORY! CaoCao at exit position with DOWN press *****");
+                    System.out.println("CaoCao covers:");
+                    System.out.println("  [3][1] - [3][2]");
+                    System.out.println("  [4][1] - [4][2]");
+
+                    showVictory();
+                }
+            }
+
+            for (int r = 0; r < model.getHeight(); r++) {
+                for (int c = 0; c < model.getWidth(); c++) {
+                    System.out.printf("%2d ", model.getId(r, c));
+                }
+                System.out.println();
+            }
+        }
     }
 
     private void showVictory() {

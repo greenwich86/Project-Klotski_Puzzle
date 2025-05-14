@@ -162,8 +162,8 @@ public class GamePanel extends ListenerPanel {
                         }
                     }
                     
-//                    System.out.printf("Block at %d,%d positioned at %d,%d (offset %d,%d)\n",
-//                        i, j, x, y, xOffset, yOffset);
+                    System.out.printf("Block at %d,%d positioned at %d,%d (offset %d,%d)\n",
+                        i, j, x, y, xOffset, yOffset);
                     box.setLocation(x, y);
                     boxes.add(box);
                     this.add(box);
@@ -271,10 +271,6 @@ public class GamePanel extends ListenerPanel {
 
     public int getGRID_SIZE() {
         return GRID_SIZE;
-    }
-    
-    public MapModel getModel() {
-        return model;
     }
 
     public void resetBoard(int[][] newMatrix) {
@@ -398,13 +394,5 @@ public class GamePanel extends ListenerPanel {
         if (stepLabel != null) {
             stepLabel.setText(String.format("Step: %d", this.steps));
         }
-    }
-
-    public int getGameBoardWidth() {
-        return model.getWidth() * GRID_SIZE;
-    }
-
-    public int getGameBoardHeight() {
-        return model.getHeight() * GRID_SIZE;
     }
 }
