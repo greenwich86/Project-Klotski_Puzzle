@@ -1,11 +1,14 @@
 package view.game;
 
 import javax.swing.Timer;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Handles smooth animations for block movements with various easing functions.
+ * Optimized for performance and different block types.
  */
 public class AnimationHandler {
     private BoxComponent box;
@@ -13,8 +16,10 @@ public class AnimationHandler {
     private int targetX, targetY;
     private int duration;
     private Timer timer;
-    private long startTime;
+    private long startTimeNano;  // Using nanoseconds for more precise timing
     private Runnable onComplete;
+    private int blockType;       // Store the block type for specialized handling
+    private Direction moveDirection; // Direction of movement
     
     // Easing function types
     public enum EasingType {
@@ -26,8 +31,18 @@ public class AnimationHandler {
         EASE_OUT_BOUNCE
     }
     
+    // Direction of movement (for specialized animation handling)
+    public enum Direction {
+        HORIZONTAL,
+        VERTICAL
+    }
+    
     private EasingType easingType = EasingType.EASE_OUT_QUAD;
-
+    
+    // Reusable Swing Timer
+    private static Timer sharedTimer;
+    private static final int FRAME_TIME = 16; // ~60fps
+    
     /**
      * Creates a new animation handler with the default easing (EASE_OUT_QUAD).
      */
@@ -48,28 +63,76 @@ public class AnimationHandler {
         this.onComplete = onComplete;
         this.easingType = easingType;
         
-        // Use higher frame rate for smoother animation (60 FPS)
-        this.timer = new Timer(16, new ActionListener() {
+                // Detect movement direction for specialized handling
+                this.moveDirection = (Math.abs(targetX - startX) > Math.abs(targetY - startY)) ? 
+                                      Direction.HORIZONTAL : Direction.VERTICAL;
+                
+                // Debug print movement direction
+                System.out.println("Animation direction: " + this.moveDirection + 
+                                  " (dx=" + (targetX - startX) + ", dy=" + (targetY - startY) + ")");
+        
+        // Set up timer with higher frame rate for smoother animation
+        this.timer = new Timer(FRAME_TIME, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 animateStep();
             }
         });
+        
+        // Make timer not coalesce events for smoother animation
+        this.timer.setCoalesce(false);
+    }
+    
+    /**
+     * Sets the block type for specialized handling
+     */
+    public void setBlockType(int blockType) {
+        this.blockType = blockType;
+        System.out.println("Setting block type to: " + blockType + " in AnimationHandler (General = 3)");
     }
 
+    /**
+     * Single animation step
+     */
     private void animateStep() {
-        long currentTime = System.currentTimeMillis();
-        float progress = Math.min(1.0f, (float)(currentTime - startTime) / duration);
+        // Use nanoTime for more precise timing
+        long currentTimeNano = System.nanoTime();
+        float elapsedMillis = TimeUnit.NANOSECONDS.toMillis(currentTimeNano - startTimeNano);
+        float progress = Math.min(1.0f, elapsedMillis / duration);
         
         // Apply selected easing function
         float easedProgress = applyEasing(progress);
         
+        // Calculate new position
         int currentX = (int)(startX + (targetX - startX) * easedProgress);
         int currentY = (int)(startY + (targetY - startY) * easedProgress);
         
+        // Debug output for General piece
+        if (blockType == 3) {  // 3 is the General piece ID
+            System.out.println("Animating General piece: progress=" + progress + 
+                              " direction=" + moveDirection +
+                              " current=[" + currentX + "," + currentY + "]" +
+                              " target=[" + targetX + "," + targetY + "]");
+            
+            // Add different animation effects based on direction
+            if (moveDirection == Direction.VERTICAL) {
+                // For vertical movement, add slight horizontal wobble
+                int wobbleAmount = (int)(Math.sin(progress * Math.PI * 3) * 3);
+                currentX += wobbleAmount;
+            } else {
+                // For horizontal movement of vertical piece, add bounce effect
+                float bounceFactor = (float)Math.abs(Math.sin(progress * Math.PI));
+                currentY += (int)(bounceFactor * 4 * (1.0 - progress));
+            }
+        }
+        
+        // Set the new position
         box.setLocation(currentX, currentY);
+        
+        // Optimization: Only repaint the affected area
         box.repaint();
         
+        // Animation complete
         if (progress >= 1.0f) {
             timer.stop();
             // Ensure final position is exact
@@ -145,7 +208,7 @@ public class AnimationHandler {
      * Starts the animation.
      */
     public void start() {
-        this.startTime = System.currentTimeMillis();
+        this.startTimeNano = System.nanoTime();
         timer.start();
     }
 

@@ -124,13 +124,13 @@ public class GameController {
     }
 
     public boolean doMove(int row, int col, Direction direction) {
-        // System.err.println("Attempting move from ["+row+"]["+col+"] direction "+direction);
+        // Get the block type at the current position
         int blockType = model.getId(row, col);
-        // System.err.println("Block type: "+blockType);
-
+        
         // Determine block dimensions based on type
         int width = 1;
         int height = 1;
+        final boolean isGeneral = blockType == MapModel.GENERAL; // Make final for lambda usage
 
         if (blockType == MapModel.CAO_CAO) { // 2x2 block
             width = 2;
@@ -141,43 +141,42 @@ public class GameController {
         } else if (blockType == MapModel.GENERAL) { // 1x2 block
             width = 1;
             height = 2;
+            // isGeneral is already set above
         } else if (blockType == MapModel.ZHOU_YU) { // 1x3 block
             width = 3;
             height = 1;
         } else if (blockType == MapModel.BLOCKED) { // Immovable
             return false;
-        } else { // Single square blocks
-            width = 1;
-            height = 1;
         }
 
-        // System.err.println("Block dimensions: " + width + "x" + height);
-
-        // System.err.println("Checking move for block type " + blockType + " with dimensions " + width + "x" + height);
         boolean canMove = canMove(row, col, width, height, direction);
-        // System.err.println("Can move result: " + canMove);
+        
         if (canMove) {
             // Calculate new top-left position
-            int nextRow = row + direction.getRow();
-            int nextCol = col + direction.getCol();
-
-            // Move the block by clearing old positions and setting new ones
-            for (int r = row; r < row + height; r++) {
-                for (int c = col; c < col + width; c++) {
-                    model.getMatrix()[r][c] = 0;
-                }
-            }
-            for (int r = row; r < row + height; r++) {
-                for (int c = col; c < col + width; c++) {
-                    model.getMatrix()[r + direction.getRow()][c + direction.getCol()] = blockType;
-                }
-            }
-
+            final int nextRow = row + direction.getRow();
+            final int nextCol = col + direction.getCol();
+            
+            // Save current matrix state before modifying
+            final int[][] originalMatrix = model.copyMatrix();
+            
+            // Get the selected box component
             final BoxComponent box = view.getSelectedBox();
+            
+            // Store original position for animations
+            final int originalX = box.getX();
+            final int originalY = box.getY();
+            
+            // Update the component's logical position
             box.setRow(nextRow);
             box.setCol(nextCol);
             
-            // Calculate grid positions properly
+            // Clear the old positions in the model
+            clearOldPositions(row, col, width, height);
+            
+            // Set the new positions in the model
+            setNewPositions(nextRow, nextCol, width, height, blockType);
+            
+            // Calculate animation target
             int xOffset = (view.getWidth() - model.getWidth() * view.getGRID_SIZE()) / 2;
             int yOffset = (view.getHeight() - model.getHeight() * view.getGRID_SIZE() - view.getGRID_SIZE()) / 3;
             if (xOffset < 10) xOffset = 10;
@@ -187,57 +186,129 @@ public class GameController {
             int targetX = xOffset + nextCol * view.getGRID_SIZE();
             int targetY = yOffset + nextRow * view.getGRID_SIZE();
             
-            // Safety checks to ensure targets are within reasonable bounds
+            // Safety check bounds
             if (targetX < 0) targetX = 0;
             if (targetY < 0) targetY = 0;
-            if (targetX > view.getWidth() - box.getWidth()) targetX = view.getWidth() - box.getWidth();
-            if (targetY > view.getHeight() - box.getHeight()) targetY = view.getHeight() - box.getHeight();
+            if (targetX > view.getWidth() - box.getWidth()) {
+                targetX = view.getWidth() - box.getWidth();
+            }
+            if (targetY > view.getHeight() - box.getHeight()) {
+                targetY = view.getHeight() - box.getHeight();
+            }
             
+            // Mark as animating
             box.setAnimating(true);
             
-            // Use a slower duration for more noticeable animation
+            // Choose animation duration and easing
             int animationDuration = 150;
             
-            // Use bounce easing for more satisfying movement
-            AnimationHandler.EasingType easing = AnimationHandler.EasingType.EASE_OUT_QUAD;
+            // Select easing based on block type and direction
+            AnimationHandler.EasingType easing;
+            if (isGeneral) {
+                // Special handling for General piece (1x2 vertical)
+                if (direction == Direction.LEFT || direction == Direction.RIGHT) {
+                    // More pronounced effect for horizontal movement of vertical pieces
+                    easing = AnimationHandler.EasingType.EASE_OUT_BACK;
+                    // Slightly longer animation for horizontal movement
+                    animationDuration = 180;
+                } else {
+                    // Standard easing for vertical movement
+                    easing = AnimationHandler.EasingType.EASE_OUT_QUAD;
+                }
+            } else if (blockType == MapModel.CAO_CAO) {
+                // Smoother movement for the main character
+                easing = AnimationHandler.EasingType.EASE_OUT_QUAD;
+            } else {
+                // Default easing for other pieces
+                easing = AnimationHandler.EasingType.EASE_OUT_QUAD;
+            }
             
-            AnimationHandler animation = new AnimationHandler(
+            // Test if we're moving a General piece in left/right direction
+            final boolean isHorizontalMoveOfVerticalPiece = isGeneral && 
+                                                      (direction == Direction.LEFT || 
+                                                       direction == Direction.RIGHT);
+    
+            // Debug print
+            System.out.println("Animating " + 
+                              (isGeneral ? "General" : "other") + 
+                              " piece " + blockType + 
+                              " dir=" + direction + 
+                              " from [" + row + "," + col + "] to [" + nextRow + "," + nextCol + "]" +
+                              " isHorizontal=" + isHorizontalMoveOfVerticalPiece);
+                
+            // Create animation handler and configure it
+            final AnimationHandler animation = new AnimationHandler(
                 box, 
                 targetX, 
                 targetY, 
                 animationDuration, 
                 () -> {
+                    // Animation complete callback
                     box.setAnimating(false);
                     
-                    // Special handling for general blocks (1x2) after animation completes
-                    if (blockType == MapModel.GENERAL) {
-                        // Update both positions in the model
+                    // Special handling for General pieces, but in a unified way
+                    if (isGeneral) {
+                        // The General is a vertical piece (1 wide, 2 tall)
+                        // Update both cells in the matrix to ensure consistency
                         model.getMatrix()[nextRow][nextCol] = blockType;
-                        model.getMatrix()[nextRow + 1][nextCol] = blockType;
-                        // Force full panel repaint
-                        view.resetBoard(model.getMatrix());
-                        view.repaint();
+                        
+                        // Set second cell (below first cell)
+                        if (nextRow + 1 < model.getHeight()) {
+                            model.getMatrix()[nextRow + 1][nextCol] = blockType;
+                        }
+                        
+                        // Ensure repaint happens regardless
+                        box.repaint();
                     } else {
+                        // For other pieces, just repaint
                         box.repaint();
                     }
                     
-                    // Save state after move and update count
+                    // Save game state - shared logic for all pieces
                     moveHistory.push(model.copyMatrix());
                     moveCount++;
                     view.updateMoveCount(moveCount);
                     
-                    // Check victory condition
+                    // Check for victory
                     checkVictoryCondition(blockType, nextRow, nextCol);
                 },
-                easing  // Pass easing type as the last parameter
+                easing
             );
+            
+            // Set block type and start the animation
+            animation.setBlockType(blockType);
             animation.start();
             
-            // Return early since the animation's onComplete will handle the rest
             return true;
-
         }
+        
         return false;
+    }
+    
+    /**
+     * Clear positions for the block being moved
+     */
+    private void clearOldPositions(int row, int col, int width, int height) {
+        for (int r = row; r < row + height; r++) {
+            for (int c = col; c < col + width; c++) {
+                if (r < model.getHeight() && c < model.getWidth()) {
+                    model.getMatrix()[r][c] = 0;
+                }
+            }
+        }
+    }
+    
+    /**
+     * Set new positions for the block after movement
+     */
+    private void setNewPositions(int nextRow, int nextCol, int width, int height, int blockType) {
+        for (int r = 0; r < height; r++) {
+            for (int c = 0; c < width; c++) {
+                if (nextRow + r < model.getHeight() && nextCol + c < model.getWidth()) {
+                    model.getMatrix()[nextRow + r][nextCol + c] = blockType;
+                }
+            }
+        }
     }
     
     private void checkVictoryCondition(int blockType, int nextRow, int nextCol) {
