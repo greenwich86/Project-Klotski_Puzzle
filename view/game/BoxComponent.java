@@ -11,6 +11,8 @@ public class BoxComponent extends JComponent {
     private int col;
     private boolean isSelected;
     private boolean movable;
+    private boolean isAnimating;
+
 
     public BoxComponent(Color color, int row, int col) {
         this(color, row, col, true);
@@ -106,16 +108,24 @@ public class BoxComponent extends JComponent {
         return row;
     }
 
-    public void setRow(int row) {
-        this.row = row;
-    }
-
     public int getCol() {
         return col;
     }
 
+    public void setRow(int row) {
+        this.row = row;
+    }
+
     public void setCol(int col) {
         this.col = col;
+    }
+
+    public boolean isAnimating() {
+        return isAnimating;
+    }
+
+    public void setAnimating(boolean animating) {
+        this.isAnimating = animating;
     }
 
     public boolean isMovable() {
@@ -126,4 +136,6 @@ public class BoxComponent extends JComponent {
         this.movable = movable;
         this.repaint();
     }
+
+
 }
