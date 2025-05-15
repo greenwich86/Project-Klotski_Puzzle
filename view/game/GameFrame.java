@@ -3,9 +3,12 @@ package view.game;
 import controller.GameController;
 import model.MapModel;
 import view.FrameUtil;
+import view.menu.SelectionMenuFrame;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
 public class GameFrame extends JFrame {
 
@@ -13,15 +16,26 @@ public class GameFrame extends JFrame {
     private JButton restartBtn;
     private JButton loadBtn;
     private boolean guestMode = false;
+    private boolean timeAttackMode = false;
 
     private JLabel stepLabel;
+    private JLabel timerLabel;
     private GamePanel gamePanel;
+    
+    // Timer components
+    private Timer gameTimer;
+    private long startTime;
+    private long elapsedTime;
+    private boolean timerRunning = false;
 
     public GameFrame(int width, int height, MapModel mapModel) {
-        this.setTitle("2025 CS109 Project Demo");
+        this.setTitle("Klotski Puzzle");
         this.setLayout(new BorderLayout());
         this.setSize(width, height);
         this.setMinimumSize(new Dimension(800, 600));
+        
+        // Initialize timer
+        initializeTimer();
         
         // Main panel with game board
         try {
@@ -45,37 +59,38 @@ public class GameFrame extends JFrame {
         controlPanel.setLayout(new BoxLayout(controlPanel, BoxLayout.Y_AXIS));
         controlPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         
+        // Stats panel for steps and timer
+        JPanel statsPanel = new JPanel();
+        statsPanel.setLayout(new BoxLayout(statsPanel, BoxLayout.Y_AXIS));
+        statsPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
         // Step counter
-        this.stepLabel = new JLabel("Start");
-        stepLabel.setFont(new Font("serif", Font.ITALIC, 22));
+        this.stepLabel = new JLabel("Moves: 0");
+        stepLabel.setFont(new Font("serif", Font.PLAIN, 18));
         stepLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        controlPanel.add(stepLabel);
-        controlPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+        statsPanel.add(stepLabel);
+        statsPanel.add(Box.createRigidArea(new Dimension(0, 10)));
         gamePanel.setStepLabel(stepLabel);
-
-        // Level buttons
-        JPanel levelPanel = new JPanel();
-        levelPanel.setLayout(new BoxLayout(levelPanel, BoxLayout.Y_AXIS));
-        levelPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        for (int i = 0; i < 3; i++) {
-            final int level = i;
-            JButton levelBtn = new JButton("Level " + (i+1));
-            levelBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-            levelBtn.addActionListener(e -> {
-                controller.setLevel(level);
-                gamePanel.requestFocusInWindow();
-            });
-            levelPanel.add(levelBtn);
-            levelPanel.add(Box.createRigidArea(new Dimension(0, 5)));
-        }
-        controlPanel.add(levelPanel);
+        
+        // Timer display
+        this.timerLabel = new JLabel("Time: 00:00");
+        timerLabel.setFont(new Font("serif", Font.PLAIN, 18));
+        timerLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        statsPanel.add(timerLabel);
+        
+        controlPanel.add(statsPanel);
         controlPanel.add(Box.createRigidArea(new Dimension(0, 20)));
 
         // Action buttons
+        JPanel actionPanel = new JPanel();
+        actionPanel.setLayout(new BoxLayout(actionPanel, BoxLayout.Y_AXIS));
+        actionPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
         this.restartBtn = new JButton("Restart");
         restartBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         restartBtn.addActionListener(e -> {
             controller.restartGame();
+            resetTimer();
             gamePanel.requestFocusInWindow();
         });
         
@@ -92,8 +107,14 @@ public class GameFrame extends JFrame {
             if (guestMode) {
                 JOptionPane.showMessageDialog(this, "Guest users cannot load games");
             } else {
-                controller.loadGame();
-                gamePanel.requestFocusInWindow();
+                if (controller.loadGame()) {
+                    // Update timer if in time attack mode
+                    if (timeAttackMode) {
+                        resetTimer();
+                        startTimer();
+                    }
+                    gamePanel.requestFocusInWindow();
+                }
             }
         });
         
@@ -103,18 +124,29 @@ public class GameFrame extends JFrame {
             if (guestMode) {
                 JOptionPane.showMessageDialog(this, "Guest users cannot save games");
             } else {
-                controller.saveGame();
+                controller.saveGame(timeAttackMode ? elapsedTime : 0);
                 gamePanel.requestFocusInWindow();
             }
         });
         
-        controlPanel.add(restartBtn);
-        controlPanel.add(Box.createRigidArea(new Dimension(0, 10)));
-        controlPanel.add(undoBtn);
-        controlPanel.add(Box.createRigidArea(new Dimension(0, 20)));
-        controlPanel.add(loadBtn);
-        controlPanel.add(Box.createRigidArea(new Dimension(0, 10)));
-        controlPanel.add(saveBtn);
+        // Back to menu button
+        JButton menuBtn = new JButton("Main Menu");
+        menuBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        menuBtn.addActionListener(e -> {
+            returnToMenu();
+        });
+        
+        actionPanel.add(restartBtn);
+        actionPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+        actionPanel.add(undoBtn);
+        actionPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+        actionPanel.add(loadBtn);
+        actionPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+        actionPanel.add(saveBtn);
+        actionPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+        actionPanel.add(menuBtn);
+        
+        controlPanel.add(actionPanel);
         
         this.add(controlPanel, BorderLayout.EAST);
         this.setLocationRelativeTo(null);
@@ -129,27 +161,121 @@ public class GameFrame extends JFrame {
         // Initial focus requests
         this.requestFocusInWindow();
         gamePanel.requestFocusInWindow();
+        // Set default close operation to return to menu
+        this.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+    }
+    
+    private void initializeTimer() {
+        elapsedTime = 0;
+        gameTimer = new Timer(1000, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                elapsedTime += 1000; // Increment by 1 second
+                updateTimerDisplay();
+            }
+        });
+    }
+    
+    public void startTimer() {
+        if (!timerRunning && timeAttackMode) {
+            timerRunning = true;
+            startTime = System.currentTimeMillis() - elapsedTime;
+            gameTimer.start();
+        }
+    }
+    
+    public void stopTimer() {
+        if (timerRunning) {
+            timerRunning = false;
+            gameTimer.stop();
+            elapsedTime = System.currentTimeMillis() - startTime;
+        }
+    }
+    
+    public void resetTimer() {
+        stopTimer();
+        elapsedTime = 0;
+        updateTimerDisplay();
+    }
+    
+    private void updateTimerDisplay() {
+        long seconds = elapsedTime / 1000;
+        long minutes = seconds / 60;
+        seconds = seconds % 60;
+        timerLabel.setText(String.format("Time: %02d:%02d", minutes, seconds));
+    }
+    
+    public long getElapsedTime() {
+        if (timerRunning) {
+            return System.currentTimeMillis() - startTime;
+        }
+        return elapsedTime;
+    }
+    
+    public void setTimeAttackMode(boolean timeAttackMode) {
+        this.timeAttackMode = timeAttackMode;
+        timerLabel.setVisible(timeAttackMode);
+        
+        if (timeAttackMode) {
+            resetTimer();
+            startTimer();
+        } else {
+            stopTimer();
+        }
+    }
+    
+    public boolean isTimeAttackMode() {
+        return timeAttackMode;
+    }
+    
+    private void returnToMenu() {
+        // Stop timer if it's running
+        stopTimer();
+        
+        // Create and show selection menu
+        SelectionMenuFrame menuFrame = new SelectionMenuFrame(400, 400, 
+                this.controller.getCurrentUser() != null ? this.controller.getCurrentUser() : "");
+        menuFrame.setGameFrame(this);
+        menuFrame.setVisible(true);
+        
+        // Hide game frame
+        this.setVisible(false);
     }
 
     public void setGuestMode(boolean guestMode) {
         this.guestMode = guestMode;
         if (guestMode) {
-            this.setTitle("2025 CS109 Project Demo (Guest Mode)");
+            this.setTitle("Klotski Puzzle (Guest Mode)");
             this.loadBtn.setEnabled(false);
-            // Also disable Save button in guest mode
-            for (Component c : this.getContentPane().getComponents()) {
-                if (c instanceof JButton && ((JButton)c).getText().equals("Save")) {
-                    ((JButton)c).setEnabled(false);
+            
+            // Find and disable Save button
+            Component[] components = this.getContentPane().getComponents();
+            for (Component c : components) {
+                if (c instanceof JPanel) {
+                    findAndSetButtonState((JPanel) c, "Save", false);
                 }
             }
         } else {
-            this.setTitle("2025 CS109 Project Demo");
+            this.setTitle("Klotski Puzzle");
             this.loadBtn.setEnabled(true);
-            // Enable Save button when not in guest mode
-            for (Component c : this.getContentPane().getComponents()) {
-                if (c instanceof JButton && ((JButton)c).getText().equals("Save")) {
-                    ((JButton)c).setEnabled(true);
+            
+            // Find and enable Save button
+            Component[] components = this.getContentPane().getComponents();
+            for (Component c : components) {
+                if (c instanceof JPanel) {
+                    findAndSetButtonState((JPanel) c, "Save", true);
                 }
+            }
+        }
+    }
+    
+    private void findAndSetButtonState(JPanel panel, String buttonText, boolean enabled) {
+        Component[] components = panel.getComponents();
+        for (Component c : components) {
+            if (c instanceof JButton && ((JButton)c).getText().equals(buttonText)) {
+                ((JButton)c).setEnabled(enabled);
+            } else if (c instanceof JPanel) {
+                findAndSetButtonState((JPanel) c, buttonText, enabled);
             }
         }
     }

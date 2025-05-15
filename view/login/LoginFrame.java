@@ -4,6 +4,7 @@ import model.MapModel;
 import model.UserManager;
 import view.FrameUtil;
 import view.game.GameFrame;
+import view.menu.SelectionMenuFrame;
 
 import javax.swing.*;
 import java.awt.*;
@@ -148,14 +149,20 @@ public class LoginFrame extends JFrame {
             // Validate login credentials
             String user = username.getText();
             if (validateLogin(user, new String(password.getPassword()))) {
+                // Initialize game frame if not already done
                 if (this.gameFrame == null) {
                     MapModel mapModel = new MapModel();
                     this.gameFrame = new GameFrame(800, 600, mapModel);
                 }
+                
                 // Set current user in controller and disable guest mode
                 this.gameFrame.getController().setCurrentUser(user);
                 this.gameFrame.setGuestMode(false);
-                this.gameFrame.setVisible(true);
+                
+                // Create and show selection menu instead of game frame
+                SelectionMenuFrame menuFrame = new SelectionMenuFrame(400, 400, user);
+                menuFrame.setGameFrame(this.gameFrame);
+                menuFrame.setVisible(true);
                 this.setVisible(false);
             } else {
                 JOptionPane.showMessageDialog(this, "Invalid username or password");
@@ -163,12 +170,20 @@ public class LoginFrame extends JFrame {
         });
 
         guestBtn.addActionListener(e -> {
-            // Set guest mode and proceed to game
-            if (this.gameFrame != null) {
-                this.gameFrame.setGuestMode(true);
-                this.gameFrame.setVisible(true);
-                this.setVisible(false);
+            // Initialize game frame if not already done
+            if (this.gameFrame == null) {
+                MapModel mapModel = new MapModel();
+                this.gameFrame = new GameFrame(800, 600, mapModel);
             }
+            
+            // Set guest mode
+            this.gameFrame.setGuestMode(true);
+            
+            // Create and show selection menu for guest
+            SelectionMenuFrame menuFrame = new SelectionMenuFrame(400, 400, "");
+            menuFrame.setGameFrame(this.gameFrame);
+            menuFrame.setVisible(true);
+            this.setVisible(false);
         });
 
         registerBtn.addActionListener(e -> {
