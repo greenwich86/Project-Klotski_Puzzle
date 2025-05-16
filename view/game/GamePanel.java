@@ -29,29 +29,29 @@ public class GamePanel extends ListenerPanel {
         this.setFocusable(true);
         this.setLayout(null);
         this.requestFocusInWindow(); // Explicitly request focus
-        
+
         // Calculate optimized GRID_SIZE based on model dimensions
         int maxDimension = Math.max(model.getWidth(), model.getHeight());
         int minDimension = Math.min(model.getWidth(), model.getHeight());
         GRID_SIZE = Math.min(70, Math.max(45, 500 / maxDimension - (maxDimension - minDimension) * 2));
-        
-        System.out.println("Calculated GRID_SIZE: " + GRID_SIZE + 
+
+        System.out.println("Calculated GRID_SIZE: " + GRID_SIZE +
                          " for board " + model.getWidth() + "x" + model.getHeight());
-        
+
         // Calculate panel size with dynamic padding
         int padding = Math.max(10, GRID_SIZE / 4);
         int width = model.getWidth() * GRID_SIZE + padding * 2;
         int height = (model.getHeight() + 1) * GRID_SIZE + padding * 2; // +1 for exit
-        
+
         System.out.println("Panel dimensions: " + width + "x" + height);
-        
+
         // Set sizes and ensure proper layout
         this.setPreferredSize(new Dimension(width, height));
         this.setMinimumSize(new Dimension(width, height));
         this.setSize(width, height);
         this.model = model;
         this.selectedBox = null;
-        
+
         try {
             initialGame();
         } catch (Exception e) {
@@ -71,7 +71,7 @@ public class GamePanel extends ListenerPanel {
     public void initialGame() {
         this.steps = 0;
         // Debug model dimensions and contents
-        // System.out.println("Initializing game with model dimensions: " + 
+        // System.out.println("Initializing game with model dimensions: " +
         //     model.getHeight() + "x" + model.getWidth());
         // System.out.println("Model matrix:");
         // for (int i = 0; i < model.getHeight(); i++) {
@@ -80,7 +80,7 @@ public class GamePanel extends ListenerPanel {
         //     }
         //     System.out.println();
         // }
-        
+
         // Initialize game board from full model
         int[][] map = new int[model.getHeight()][model.getWidth()];
         for (int i = 0; i < model.getHeight(); i++) {
@@ -92,10 +92,10 @@ public class GamePanel extends ListenerPanel {
         for (int i = 0; i < map.length; i++) {
             for (int j = 0; j < map[0].length; j++) {
                 if (map[i][j] == 0) continue; // Skip empty cells
-                
+
                 BoxComponent box = null;
                 int blockType = map[i][j];
-                
+
                 switch(blockType) {
                     case MapModel.CAO_CAO: // 2x2
                         if (i < map.length - 1 && j < map[0].length - 1) {
@@ -133,7 +133,7 @@ public class GamePanel extends ListenerPanel {
                         box.setMovable(false);
                         break;
                 }
-                
+
                 if (box != null) {
                     // Calculate precisely centered position
                     int boardWidth = model.getWidth() * GRID_SIZE;
@@ -143,15 +143,15 @@ public class GamePanel extends ListenerPanel {
                     int panelHeight = this.getHeight();
                     int xOffset = (panelWidth - boardWidth) / 2;
                     int yOffset = (panelHeight - boardHeight - GRID_SIZE) / 3; // Adjusted vertical centering
-                    
+
                     // Ensure minimum padding
                     if (xOffset < 10) xOffset = 10;
                     if (yOffset < 10) yOffset = 10;
-                    
+
                     // Calculate precise position accounting for block type
                     int x = xOffset + j * GRID_SIZE;
                     int y = yOffset + i * GRID_SIZE;
-                    
+
                     // Special adjustment for Guan Yu blocks to ensure proper grid alignment
                     if (blockType == MapModel.GUAN_YU) {
                         x = xOffset + j * GRID_SIZE;
@@ -161,7 +161,7 @@ public class GamePanel extends ListenerPanel {
                             box.setSize(GRID_SIZE * 2, GRID_SIZE);
                         }
                     }
-                    
+
                     System.out.printf("Block at %d,%d positioned at %d,%d (offset %d,%d)\n",
                         i, j, x, y, xOffset, yOffset);
                     box.setLocation(x, y);
@@ -279,10 +279,10 @@ public class GamePanel extends ListenerPanel {
             this.remove(box);
         }
         boxes.clear();
-        
+
         // Update model reference
         this.model = new MapModel(newMatrix);
-        
+
         // Reinitialize game with new board
         initialGame();
     }
@@ -303,18 +303,18 @@ public class GamePanel extends ListenerPanel {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        
+
         // Unified background drawing with perfect alignment
         Graphics2D g2d = (Graphics2D)g;
-        
+
         // Calculate chessboard dimensions
         int boardWidth = model.getWidth() * GRID_SIZE;
         int boardHeight = model.getHeight() * GRID_SIZE;
-        
+
         // Calculate position accounting for level dimensions
         int xOffset = (this.getWidth() - boardWidth) / 2;
         int yOffset;
-        
+
         // Special handling for level 3 (5x4 grid)
         if (model.getWidth() == 5 && model.getHeight() == 4) {
             // Precise calculation for level 3 (5x4 grid) with higher positioning
@@ -324,45 +324,45 @@ public class GamePanel extends ListenerPanel {
         } else {
             yOffset = (this.getHeight() - boardHeight - GRID_SIZE) / 3;
         }
-        
+
         // Draw background with level-specific adjustments
         g2d.setColor(new Color(240, 240, 255)); // Light blue-gray
-        
+
         if (model.getWidth() == 5 && model.getHeight() == 4) {
             // Special handling for level 3 (5x4 grid)
             int topHeight = yOffset - 4;
             int bottomHeight = this.getHeight() - (yOffset + boardHeight + 4);
-            
+
             g2d.fillRect(0, 0, this.getWidth(), topHeight); // Top
             g2d.fillRect(0, topHeight, xOffset - 4, boardHeight + 8); // Left
-            g2d.fillRect(xOffset + boardWidth + 4, topHeight, 
+            g2d.fillRect(xOffset + boardWidth + 4, topHeight,
                        this.getWidth() - (xOffset + boardWidth + 4), boardHeight + 8); // Right
             g2d.fillRect(0, yOffset + boardHeight + 4, this.getWidth(), bottomHeight); // Bottom
         } else {
             // Standard handling for other levels
             g2d.fillRect(0, 0, this.getWidth(), yOffset - 2); // Top
             g2d.fillRect(0, yOffset - 2, xOffset - 2, boardHeight + 4); // Left
-            g2d.fillRect(xOffset + boardWidth + 2, yOffset - 2, 
+            g2d.fillRect(xOffset + boardWidth + 2, yOffset - 2,
                        this.getWidth() - (xOffset + boardWidth + 2), boardHeight + 4); // Right
-            g2d.fillRect(0, yOffset + boardHeight + 2, this.getWidth(), 
+            g2d.fillRect(0, yOffset + boardHeight + 2, this.getWidth(),
                        this.getHeight() - (yOffset + boardHeight + 2)); // Bottom
         }
-        
+
         // Draw chessboard area (wheat color)
         g2d.setColor(new Color(245, 222, 179));
         g2d.fillRect(xOffset - 2, yOffset - 2, boardWidth + 4, boardHeight + 4);
-        
+
         // Draw inner chessboard (cornsilk)
         g2d.setColor(new Color(255, 248, 220));
         g2d.fillRect(xOffset, yOffset, boardWidth, boardHeight);
-        
+
         // Reuse existing board position variables for exit alignment
-        
+
         // Draw exit position centered below chessboard with tight spacing
         int exitWidth = 2 * GRID_SIZE; // Fixed width of 2 grid cells
         int exitX = (this.getWidth() - exitWidth) / 2; // Center in panel
         int exitY = yOffset + boardHeight + 2; // Below board with 2px margin
-        
+
         // Draw exit background
         if (exitHighlighted) {
             g.setColor(new Color(255, 100, 100)); // Bright red when highlighted
@@ -370,11 +370,11 @@ public class GamePanel extends ListenerPanel {
             g.setColor(new Color(255, 200, 200)); // Light red normally
         }
         g.fillRect(exitX, exitY, exitWidth, GRID_SIZE);
-        
+
         // Draw exit border
         g.setColor(Color.RED);
         g.drawRect(exitX, exitY, exitWidth, GRID_SIZE);
-        
+
         // Draw "EXIT" text
         g.setColor(Color.BLACK);
         Font exitFont = new Font(Font.SANS_SERIF, Font.BOLD, GRID_SIZE/2);
@@ -384,7 +384,7 @@ public class GamePanel extends ListenerPanel {
         int textX = exitX + (exitWidth - fm.stringWidth(exitText))/2;
         int textY = exitY + GRID_SIZE/2 + fm.getAscent()/2;
         g.drawString(exitText, textX, textY);
-        
+
         Border border = BorderFactory.createLineBorder(Color.DARK_GRAY, 2);
         this.setBorder(border);
     }
