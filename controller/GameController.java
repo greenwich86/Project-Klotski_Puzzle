@@ -6,7 +6,6 @@ import model.Direction;
 import model.MapModel;
 import view.game.AnimationHandler;
 import view.game.BoxComponent;
-import view.game.GameFrame;
 import view.game.GamePanel;
 import java.awt.Color;
 import java.io.*;
@@ -23,7 +22,6 @@ public class GameController {
     private Stack<int[][]> moveHistory;
     private String currentUser;
     private int currentLevel;
-    private GameFrame gameFrame;
 
     public GameController(GamePanel view, MapModel model) {
         this.moveHistory = new Stack<>();
@@ -31,10 +29,6 @@ public class GameController {
         this.model = model;
         this.currentLevel = 0; // Default to first level
         view.setController(this);
-    }
-    
-    public void setGameFrame(GameFrame gameFrame) {
-        this.gameFrame = gameFrame;
     }
 
     private int moveCount = 0;
@@ -45,10 +39,6 @@ public class GameController {
 
     public void setCurrentUser(String username) {
         this.currentUser = username;
-    }
-    
-    public String getCurrentUser() {
-        return currentUser;
     }
 
     public void setLevel(int level) {
@@ -61,12 +51,6 @@ public class GameController {
         view.resetBoard(model.getMatrix());
         view.updateMoveCount(0);
         view.requestFocusInWindow();
-        
-        // Start timer if in time attack mode
-        if (gameFrame != null && gameFrame.isTimeAttackMode()) {
-            gameFrame.resetTimer();
-            gameFrame.startTimer();
-        }
     }
 
     public void restartGame() {
@@ -84,12 +68,6 @@ public class GameController {
         view.resetBoard(model.getMatrix());
         view.updateMoveCount(0);
         view.requestFocusInWindow();
-        
-        // Reset timer if in time attack mode
-        if (gameFrame != null && gameFrame.isTimeAttackMode()) {
-            gameFrame.resetTimer();
-            gameFrame.startTimer();
-        }
     }
 
 
@@ -399,11 +377,6 @@ public class GameController {
     }
 
     private void showVictory() {
-        // Stop timer if it's running
-        if (gameFrame != null && gameFrame.isTimeAttackMode()) {
-            gameFrame.stopTimer();
-        }
-        
         // More prominent victory feedback
         for (int i = 0; i < 5; i++) {
             // Flash exit and highlight CaoCao
@@ -423,32 +396,16 @@ public class GameController {
             try { Thread.sleep(200); } catch (InterruptedException e) {}
         }
 
-        // Create victory message with time information if applicable
-        String victoryMessage;
-        if (gameFrame != null && gameFrame.isTimeAttackMode()) {
-            long time = gameFrame.getElapsedTime();
-            long seconds = time / 1000;
-            long minutes = seconds / 60;
-            seconds = seconds % 60;
-            victoryMessage = String.format(
-                    "<html><h1>VICTORY!</h1><br>Level %d completed!<br>Moves: %d<br>Time: %02d:%02d</html>", 
-                    currentLevel + 1, moveCount, minutes, seconds);
-        } else {
-            victoryMessage = String.format(
-                    "<html><h1>VICTORY!</h1><br>Level %d completed!<br>Moves: %d</html>", 
-                    currentLevel + 1, moveCount);
-        }
-        
-        // Show victory message
+        // More prominent victory message
         JOptionPane.showMessageDialog(view,
-                victoryMessage,
+                String.format("<html><h1>VICTORY!</h1><br>You won in %d moves!</html>", moveCount),
                 "Klotski Puzzle Solved!",
                 JOptionPane.INFORMATION_MESSAGE);
 
         restartGame();
     }
 
-    public void saveGame(long elapsedTime) {
+    public void saveGame() {
         if (currentUser == null || currentUser.isEmpty()) {
             JOptionPane.showMessageDialog(view, "Cannot save in guest mode", "Error", JOptionPane.ERROR_MESSAGE);
             return;
@@ -464,9 +421,6 @@ public class GameController {
             saveData.put("username", currentUser);
             saveData.put("moveCount", moveCount);
             saveData.put("boardState", model.getMatrix());
-            saveData.put("level", currentLevel);
-            saveData.put("timeAttackMode", gameFrame != null && gameFrame.isTimeAttackMode());
-            saveData.put("elapsedTime", elapsedTime);
 
             File saveFile = new File("saves/" + currentUser + ".json");
             try (FileWriter writer = new FileWriter(saveFile)) {
@@ -477,15 +431,6 @@ public class GameController {
             JOptionPane.showMessageDialog(view, "Failed to save game: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
         }
-    }
-    
-    // Overload for backward compatibility
-    public void saveGame() {
-        long elapsedTime = 0;
-        if (gameFrame != null && gameFrame.isTimeAttackMode()) {
-            elapsedTime = gameFrame.getElapsedTime();
-        }
-        saveGame(elapsedTime);
     }
 
     public int getCurrentLevel() {
@@ -525,13 +470,6 @@ public class GameController {
 
             // Restore game state
             moveCount = saveData.getInt("moveCount");
-            
-            // Load level if available
-            if (saveData.has("level")) {
-                currentLevel = saveData.getInt("level");
-            }
-            
-            // Load board state
             JSONArray boardArray = saveData.getJSONArray("boardState");
             int[][] loadedMatrix = new int[boardArray.length()][];
             for (int i = 0; i < boardArray.length(); i++) {
@@ -547,42 +485,8 @@ public class GameController {
             this.moveHistory.push(model.copyMatrix());
             view.resetBoard(loadedMatrix);
             view.updateMoveCount(moveCount);
-            
-            // Load time attack mode settings if available
-            if (gameFrame != null) {
-                if (saveData.has("timeAttackMode")) {
-                    boolean timeAttackMode = saveData.getBoolean("timeAttackMode");
-                    gameFrame.setTimeAttackMode(timeAttackMode);
-                    
-                    // Load elapsed time if available and in time attack mode
-                    if (timeAttackMode && saveData.has("elapsedTime")) {
-                        long elapsedTime = saveData.getLong("elapsedTime");
-                        gameFrame.stopTimer();
-                        
-                        // Use reflection to set elapsed time (since it's private)
-                        try {
-                            java.lang.reflect.Field field = gameFrame.getClass().getDeclaredField("elapsedTime");
-                            field.setAccessible(true);
-                            field.setLong(gameFrame, elapsedTime);
-                            
-                            // Update timer display
-                            java.lang.reflect.Method method = gameFrame.getClass().getDeclaredMethod("updateTimerDisplay");
-                            method.setAccessible(true);
-                            method.invoke(gameFrame);
-                            
-                            // Start timer again
-                            gameFrame.startTimer();
-                        } catch (Exception e) {
-                            // If reflection fails, just reset timer
-                            System.err.println("Failed to set elapsed time: " + e.getMessage());
-                            gameFrame.resetTimer();
-                            gameFrame.startTimer();
-                        }
-                    }
-                }
-            }
-            
             view.requestFocusInWindow();
+
             return true;
         } catch (Exception e) {
             JOptionPane.showMessageDialog(view, "Failed to load game: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);

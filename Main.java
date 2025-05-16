@@ -6,21 +6,15 @@ import javax.swing.*;
 
 public class Main {
     public static void main(String[] args) {
+
+
         SwingUtilities.invokeLater(() -> {
-            // Create login frame
-            LoginFrame loginFrame = new LoginFrame(280, 320);
-            
-            // Create game model and frame (initially hidden)
+            LoginFrame loginFrame = new LoginFrame(280, 280);
+            loginFrame.setVisible(true);
             MapModel mapModel = new MapModel();
-            GameFrame gameFrame = new GameFrame(800, 600, mapModel);
-            
-            // Connect controller with game frame (for timer control)
-            gameFrame.getController().setGameFrame(gameFrame);
-            
-            // Set game frame in login frame and show login
+            GameFrame gameFrame = new GameFrame(600, 450, mapModel);
             gameFrame.setVisible(false);
             loginFrame.setGameFrame(gameFrame);
-            loginFrame.setVisible(true);
         });
     }
 }

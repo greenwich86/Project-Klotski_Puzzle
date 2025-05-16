@@ -243,7 +243,7 @@ public class GamePanel extends ListenerPanel {
     public void afterMove() {
         // Step count is now handled by GameController
         if (stepLabel != null) {
-            stepLabel.setText(String.format("Moves: %d", controller.getMoveCount()));
+            stepLabel.setText(String.format("Step: %d", controller.getMoveCount()));
         }
     }
 
@@ -392,7 +392,7 @@ public class GamePanel extends ListenerPanel {
     public void updateMoveCount(int count) {
         this.steps = count;
         if (stepLabel != null) {
-            stepLabel.setText(String.format("Moves: %d", this.steps));
+            stepLabel.setText(String.format("Step: %d", this.steps));
         }
     }
 }
