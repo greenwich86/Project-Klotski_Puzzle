@@ -155,7 +155,15 @@ public class LoginFrame extends JFrame {
                 // Set current user in controller and disable guest mode
                 this.gameFrame.getController().setCurrentUser(user);
                 this.gameFrame.setGuestMode(false);
-                this.gameFrame.setVisible(true);
+                
+                // Create and show the selection menu instead of the game directly
+                view.menu.SelectionMenuFrame menuFrame = new view.menu.SelectionMenuFrame(600, 400, user);
+                menuFrame.setGameFrame(this.gameFrame);
+                
+                // Set the parent frame reference in the GameFrame for the "Return to Menu" button
+                this.gameFrame.setParentFrame(menuFrame);
+                
+                menuFrame.setVisible(true);
                 this.setVisible(false);
             } else {
                 JOptionPane.showMessageDialog(this, "Invalid username or password");
@@ -163,10 +171,18 @@ public class LoginFrame extends JFrame {
         });
 
         guestBtn.addActionListener(e -> {
-            // Set guest mode and proceed to game
+            // Set guest mode and create menu
             if (this.gameFrame != null) {
                 this.gameFrame.setGuestMode(true);
-                this.gameFrame.setVisible(true);
+                
+                // Create and show the selection menu instead of the game directly
+                view.menu.SelectionMenuFrame menuFrame = new view.menu.SelectionMenuFrame(600, 400, "");
+                menuFrame.setGameFrame(this.gameFrame);
+                
+                // Set the parent frame reference in the GameFrame for the "Return to Menu" button
+                this.gameFrame.setParentFrame(menuFrame);
+                
+                menuFrame.setVisible(true);
                 this.setVisible(false);
             }
         });

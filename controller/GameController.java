@@ -2,12 +2,17 @@ package controller;
 
 import java.util.Stack;
 import javax.swing.JOptionPane;
+import javax.swing.Timer;
 import model.Direction;
 import model.MapModel;
 import view.game.AnimationHandler;
 import view.game.BoxComponent;
 import view.game.GamePanel;
 import java.awt.Color;
+import java.awt.Component;
+import java.awt.Toolkit;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -141,7 +146,6 @@ public class GameController {
         } else if (blockType == MapModel.GENERAL) { // 1x2 block
             width = 1;
             height = 2;
-            // isGeneral is already set above
         } else if (blockType == MapModel.ZHOU_YU) { // 1x3 block
             width = 3;
             height = 1;
@@ -151,6 +155,9 @@ public class GameController {
 
         boolean canMove = canMove(row, col, width, height, direction);
         
+        // Get the selected box component
+        final BoxComponent box = view.getSelectedBox();
+        
         if (canMove) {
             // Calculate new top-left position
             final int nextRow = row + direction.getRow();
@@ -158,9 +165,6 @@ public class GameController {
             
             // Save current matrix state before modifying
             final int[][] originalMatrix = model.copyMatrix();
-            
-            // Get the selected box component
-            final BoxComponent box = view.getSelectedBox();
             
             // Store original position for animations
             final int originalX = box.getX();
@@ -176,15 +180,51 @@ public class GameController {
             // Set the new positions in the model
             setNewPositions(nextRow, nextCol, width, height, blockType);
             
-            // Calculate animation target
-            int xOffset = (view.getWidth() - model.getWidth() * view.getGRID_SIZE()) / 2;
-            int yOffset = (view.getHeight() - model.getHeight() * view.getGRID_SIZE() - view.getGRID_SIZE()) / 3;
+            // Fixed offset values for consistent positioning
+            int xOffset = view.getWidth() / 2 - (model.getWidth() * view.getGRID_SIZE()) / 2;
+            int yOffset = 100; // Fixed vertical padding value
+            
+            // Ensure minimum offset values
             if (xOffset < 10) xOffset = 10;
             if (yOffset < 10) yOffset = 10;
             
-            // Calculate precise target position within the grid
-            int targetX = xOffset + nextCol * view.getGRID_SIZE();
-            int targetY = yOffset + nextRow * view.getGRID_SIZE();
+            // Calculate precise target position - use EXACT grid size value
+            int GRID_SIZE = view.getGRID_SIZE();
+            System.out.println("GRID_SIZE = " + GRID_SIZE);
+            
+            int targetX = xOffset + nextCol * GRID_SIZE;
+            int targetY = yOffset + nextRow * GRID_SIZE;
+            
+            // Debug positioning calculation
+            System.out.println("Target position: (" + targetX + "," + targetY + ")");
+            System.out.println("Current position: (" + box.getX() + "," + box.getY() + ")");
+            System.out.println("Movement delta: (" + (targetX - box.getX()) + "," + (targetY - box.getY()) + ")");
+            
+            // Force minimum movement delta based on direction
+            // This ensures animation always has a meaningful distance to travel
+            int minDelta = GRID_SIZE / 2; // Minimum 35px movement
+            
+            // Set direction-specific deltas
+            if (direction == Direction.LEFT && targetX >= box.getX()) {
+                targetX = box.getX() - GRID_SIZE;
+                System.out.println("Forcing LEFT movement, new targetX: " + targetX);
+            } 
+            else if (direction == Direction.RIGHT && targetX <= box.getX()) {
+                targetX = box.getX() + GRID_SIZE;
+                System.out.println("Forcing RIGHT movement, new targetX: " + targetX);
+            }
+            else if (direction == Direction.UP && targetY >= box.getY()) {
+                targetY = box.getY() - GRID_SIZE;
+                System.out.println("Forcing UP movement, new targetY: " + targetY);
+            }
+            else if (direction == Direction.DOWN && targetY <= box.getY()) {
+                targetY = box.getY() + GRID_SIZE;
+                System.out.println("Forcing DOWN movement, new targetY: " + targetY);
+            }
+            
+            // Debug new delta
+            System.out.println("Adjusted movement delta: (" + 
+                             (targetX - box.getX()) + "," + (targetY - box.getY()) + ")");
             
             // Safety check bounds
             if (targetX < 0) targetX = 0;
@@ -199,44 +239,15 @@ public class GameController {
             // Mark as animating
             box.setAnimating(true);
             
-            // Choose animation duration and easing
-            int animationDuration = 150;
+            // Use a fixed animation duration for all pieces - longer to ensure smooth movement
+            int animationDuration = 250; // Increased duration for smoother animation
             
-            // Select easing based on block type and direction
-            AnimationHandler.EasingType easing;
-            if (isGeneral) {
-                // Special handling for General piece (1x2 vertical)
-                if (direction == Direction.LEFT || direction == Direction.RIGHT) {
-                    // More pronounced effect for horizontal movement of vertical pieces
-                    easing = AnimationHandler.EasingType.EASE_OUT_BACK;
-                    // Slightly longer animation for horizontal movement
-                    animationDuration = 180;
-                } else {
-                    // Standard easing for vertical movement
-                    easing = AnimationHandler.EasingType.EASE_OUT_QUAD;
-                }
-            } else if (blockType == MapModel.CAO_CAO) {
-                // Smoother movement for the main character
-                easing = AnimationHandler.EasingType.EASE_OUT_QUAD;
-            } else {
-                // Default easing for other pieces
-                easing = AnimationHandler.EasingType.EASE_OUT_QUAD;
-            }
-            
-            // Test if we're moving a General piece in left/right direction
-            final boolean isHorizontalMoveOfVerticalPiece = isGeneral && 
-                                                      (direction == Direction.LEFT || 
-                                                       direction == Direction.RIGHT);
-    
             // Debug print
-            System.out.println("Animating " + 
-                              (isGeneral ? "General" : "other") + 
-                              " piece " + blockType + 
+            System.out.println("Animating piece " + blockType + 
                               " dir=" + direction + 
-                              " from [" + row + "," + col + "] to [" + nextRow + "," + nextCol + "]" +
-                              " isHorizontal=" + isHorizontalMoveOfVerticalPiece);
+                              " from [" + row + "," + col + "] to [" + nextRow + "," + nextCol + "]");
                 
-            // Create animation handler and configure it
+            // Create animation handler with improved version
             final AnimationHandler animation = new AnimationHandler(
                 box, 
                 targetX, 
@@ -271,8 +282,7 @@ public class GameController {
                     
                     // Check for victory
                     checkVictoryCondition(blockType, nextRow, nextCol);
-                },
-                easing
+                }
             );
             
             // Set block type and start the animation
@@ -280,9 +290,65 @@ public class GameController {
             animation.start();
             
             return true;
+        } else {
+            // Enhanced collision feedback with small shake animation
+            if (box != null) {
+                // Store original position for the shake animation
+                final int originalX = box.getX();
+                final int originalY = box.getY();
+                
+                // Calculate shake direction based on attempted move
+                final int shakeDistance = 5; // Subtle shake distance
+                final int dirX = direction == Direction.LEFT ? -1 : (direction == Direction.RIGHT ? 1 : 0);
+                final int dirY = direction == Direction.UP ? -1 : (direction == Direction.DOWN ? 1 : 0);
+                
+                // Highlight the piece
+                box.setSelected(true);
+                
+                // Store original color
+                final Color originalBackground = box.getBackground();
+                
+                // Set collision background
+                box.setBackground(new Color(255, 100, 100, 150));
+                
+                // Create a shake animation sequence with 6 steps
+                Timer shakeTimer = new Timer(40, new ActionListener() {
+                    private int step = 0;
+                    private final int[] shakePattern = {1, 2, 1, 0, -1, 0}; // Subtle shake pattern
+                    
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        if (step < shakePattern.length) {
+                            // Calculate new position for this shake step
+                            int offset = shakePattern[step] * shakeDistance;
+                            box.setLocation(originalX + (dirX * offset), originalY + (dirY * offset));
+                            
+                            // Update alpha for fading effect
+                            int alpha = Math.max(50, 150 - (step * 20));
+                            box.setBackground(new Color(255, 100, 100, alpha));
+                            
+                            step++;
+                        } else {
+                            // Animation complete, restore original state
+                            box.setLocation(originalX, originalY);
+                            box.setSelected(false);
+                            box.setBackground(originalBackground);
+                            ((javax.swing.Timer)e.getSource()).stop();
+                        }
+                        
+                        // Force repaint at each step
+                        box.repaint();
+                    }
+                });
+                
+                shakeTimer.setRepeats(true);
+                shakeTimer.start();
+                
+                // Play collision sound effect (system beep as fallback)
+                Toolkit.getDefaultToolkit().beep();
+            }
+            return false;
         }
-        
-        return false;
     }
     
     /**
@@ -435,6 +501,44 @@ public class GameController {
 
     public int getCurrentLevel() {
         return currentLevel;
+    }
+    
+    /**
+     * Gets the current MapModel
+     * Used by the AI solver to analyze the current game state
+     * 
+     * @return The current MapModel instance
+     */
+    public MapModel getModel() {
+        return this.model;
+    }
+    
+    /**
+     * Selects the box at the specified board position
+     * Used by the AI solver to move specific pieces
+     * 
+     * @param row Row position on the board
+     * @param col Column position on the board
+     * @return The selected BoxComponent, or null if no box at position
+     */
+    public BoxComponent selectBoxAt(int row, int col) {
+        // Find the box at the specified position
+        for (Component component : view.getComponents()) {
+            if (component instanceof BoxComponent) {
+                BoxComponent box = (BoxComponent) component;
+                if (box.getRow() == row && box.getCol() == col) {
+                    // Select this box and deselect any previously selected box
+                    BoxComponent previousBox = view.getSelectedBox();
+                    if (previousBox != null) {
+                        previousBox.setSelected(false);
+                    }
+                    box.setSelected(true);
+                    return box;
+                }
+            }
+        }
+        
+        return null;
     }
 
     public boolean loadGame() {

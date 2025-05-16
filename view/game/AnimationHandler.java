@@ -7,80 +7,116 @@ import java.awt.event.ActionListener;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Handles smooth animations for block movements with various easing functions.
- * Optimized for performance and different block types.
+ * Simple animation handler for straight line movements.
+ * Fixed to prevent any vertical or horizontal drift during animations.
  */
 public class AnimationHandler {
-    private BoxComponent box;
-    private int startX, startY;
-    private int targetX, targetY;
-    private int duration;
-    private Timer timer;
-    private long startTimeNano;  // Using nanoseconds for more precise timing
-    private Runnable onComplete;
-    private int blockType;       // Store the block type for specialized handling
-    private Direction moveDirection; // Direction of movement
-    
-    // Easing function types
-    public enum EasingType {
-        LINEAR,
-        EASE_IN_QUAD,
-        EASE_OUT_QUAD,
-        EASE_IN_OUT_QUAD,
-        EASE_OUT_BACK,
-        EASE_OUT_BOUNCE
-    }
-    
-    // Direction of movement (for specialized animation handling)
+    // Direction of movement 
     public enum Direction {
         HORIZONTAL,
         VERTICAL
     }
     
-    private EasingType easingType = EasingType.EASE_OUT_QUAD;
+    private BoxComponent box;
+    private int startX, startY;
+    private int targetX, targetY;
+    private int duration;
+    private Timer timer;
+    private long startTimeNano;
+    private Runnable onComplete;
+    private int blockType;
+    private Direction moveDirection;
     
-    // Reusable Swing Timer
-    private static Timer sharedTimer;
+    // Fixed point coordinates to prevent drift
+    private final int fixedY;
+    private final int fixedX;
+    
     private static final int FRAME_TIME = 16; // ~60fps
     
     /**
-     * Creates a new animation handler with the default easing (EASE_OUT_QUAD).
+     * Creates a new simple animation handler for straight line movement
      */
     public AnimationHandler(BoxComponent box, int targetX, int targetY, int duration, Runnable onComplete) {
-        this(box, targetX, targetY, duration, onComplete, EasingType.EASE_OUT_QUAD);
-    }
-    
-    /**
-     * Creates a new animation handler with a specific easing function.
-     */
-    public AnimationHandler(BoxComponent box, int targetX, int targetY, int duration, Runnable onComplete, EasingType easingType) {
         this.box = box;
         this.startX = box.getX();
         this.startY = box.getY();
-        this.targetX = targetX;
-        this.targetY = targetY;
+        
+        // Get row and column for logical position calculation
+        int startRow = box.getRow();
+        int startCol = box.getCol();
+        
+        // Calculate the intended direction based on controller movement intent
+        int deltaX = targetX - startX;
+        int deltaY = targetY - startY;
+        System.out.println("Original delta: (" + deltaX + "," + deltaY + ")");
+        
+        // Force movement even if delta is incorrectly 0,0
+        if (Math.abs(deltaX) <= 1 && Math.abs(deltaY) <= 1) {
+            // Determine direction from controller's intended move direction
+            // This is a fallback for when the calculated delta is too small
+            
+            // Get direction from logical to physical movement
+            int[] moveDirection = getDirectionFromBoxPositions(startRow, startCol, targetX, targetY);
+            
+            // Apply forced movement of exactly one grid
+            this.targetX = startX + (moveDirection[0] * 70);
+            this.targetY = startY + (moveDirection[1] * 70);
+            
+            System.out.println("FORCED MOVEMENT: Grid unit move in direction " + 
+                             moveDirection[0] + "," + moveDirection[1]);
+        } else {
+            // Normal case - significant delta was provided
+            // Normalize to exact grid size
+            if (Math.abs(deltaX) > 0 && Math.abs(deltaY) == 0) {
+                // Horizontal movement - standardize to 70 pixels
+                int direction = deltaX > 0 ? 1 : -1;
+                this.targetX = startX + (direction * 70);
+                this.targetY = startY;
+                System.out.println("Normalized to exact 70px horizontal movement");
+            } else if (Math.abs(deltaY) > 0 && Math.abs(deltaX) == 0) {
+                // Vertical movement - standardize to 70 pixels
+                int direction = deltaY > 0 ? 1 : -1;
+                this.targetX = startX;
+                this.targetY = startY + (direction * 70);
+                System.out.println("Normalized to exact 70px vertical movement");
+            } else {
+                // Use original values if not a clear horizontal/vertical movement
+                this.targetX = targetX;
+                this.targetY = targetY;
+            }
+        }
+        
         this.duration = duration;
         this.onComplete = onComplete;
-        this.easingType = easingType;
         
-                // Detect movement direction for specialized handling
-                this.moveDirection = (Math.abs(targetX - startX) > Math.abs(targetY - startY)) ? 
-                                      Direction.HORIZONTAL : Direction.VERTICAL;
-                
-                // Debug print movement direction
-                System.out.println("Animation direction: " + this.moveDirection + 
-                                  " (dx=" + (targetX - startX) + ", dy=" + (targetY - startY) + ")");
+        // Debug positions
+        System.out.println("Animation initialized: startX=" + startX + ", startY=" + startY + 
+                          ", targetX=" + this.targetX + ", targetY=" + this.targetY);
         
-        // Set up timer with higher frame rate for smoother animation
+        // Store the fixed positions for maintaining strict linear movement
+        this.fixedX = startX;
+        this.fixedY = startY;
+        
+        // Determine movement direction based on larger delta
+        int diffX = Math.abs(this.targetX - startX);
+        int diffY = Math.abs(this.targetY - startY);
+        
+        if (diffX > diffY) {
+            this.moveDirection = Direction.HORIZONTAL;
+            System.out.println("HORIZONTAL MOVEMENT - Y will be fixed at " + fixedY);
+        } else {
+            this.moveDirection = Direction.VERTICAL;
+            System.out.println("VERTICAL MOVEMENT - X will be fixed at " + fixedX);
+        }
+        
+        // Set up timer with high frame rate for smoother animation
         this.timer = new Timer(FRAME_TIME, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 animateStep();
             }
         });
-        
-        // Make timer not coalesce events for smoother animation
-        this.timer.setCoalesce(false);
+        this.timer.setCoalesce(true); // Ensure events are combined for better performance
     }
     
     /**
@@ -88,55 +124,51 @@ public class AnimationHandler {
      */
     public void setBlockType(int blockType) {
         this.blockType = blockType;
-        System.out.println("Setting block type to: " + blockType + " in AnimationHandler (General = 3)");
     }
 
     /**
-     * Single animation step
+     * Single animation step with strict directional control
      */
     private void animateStep() {
-        // Use nanoTime for more precise timing
+        // Calculate linear progress
         long currentTimeNano = System.nanoTime();
         float elapsedMillis = TimeUnit.NANOSECONDS.toMillis(currentTimeNano - startTimeNano);
-        float progress = Math.min(1.0f, elapsedMillis / duration);
+        // More aggressive first-frame movement to ensure immediate visual feedback
+        float progress = Math.min(1.0f, Math.max(0.35f, elapsedMillis / duration));
         
-        // Apply selected easing function
-        float easedProgress = applyEasing(progress);
+        // Calculate current position with STRICT LINEAR MOVEMENT
+        int newX, newY;
         
-        // Calculate new position
-        int currentX = (int)(startX + (targetX - startX) * easedProgress);
-        int currentY = (int)(startY + (targetY - startY) * easedProgress);
-        
-        // Debug output for General piece
-        if (blockType == 3) {  // 3 is the General piece ID
-            System.out.println("Animating General piece: progress=" + progress + 
-                              " direction=" + moveDirection +
-                              " current=[" + currentX + "," + currentY + "]" +
-                              " target=[" + targetX + "," + targetY + "]");
-            
-            // Add different animation effects based on direction
-            if (moveDirection == Direction.VERTICAL) {
-                // For vertical movement, add slight horizontal wobble
-                int wobbleAmount = (int)(Math.sin(progress * Math.PI * 3) * 3);
-                currentX += wobbleAmount;
-            } else {
-                // For horizontal movement of vertical piece, add bounce effect
-                float bounceFactor = (float)Math.abs(Math.sin(progress * Math.PI));
-                currentY += (int)(bounceFactor * 4 * (1.0 - progress));
-            }
+        if (moveDirection == Direction.HORIZONTAL) {
+            // Only X changes, Y is absolutely fixed at starting position
+            newX = startX + (int)((targetX - startX) * progress);
+            newY = fixedY; // Y NEVER changes in horizontal movement
+        } else {
+            // Only Y changes, X is absolutely fixed at starting position
+            newX = fixedX; // X NEVER changes in vertical movement
+            newY = startY + (int)((targetY - startY) * progress);
         }
         
-        // Set the new position
-        box.setLocation(currentX, currentY);
+        // Debug output
+        System.out.println("ANIMATION: progress=" + progress + 
+                         ", direction=" + moveDirection +
+                         ", position=[" + newX + "," + newY + "]");
         
-        // Optimization: Only repaint the affected area
+        // Set the new position
+        box.setLocation(newX, newY);
         box.repaint();
         
         // Animation complete
         if (progress >= 1.0f) {
             timer.stop();
-            // Ensure final position is exact
-            box.setLocation(targetX, targetY);
+            
+            // Final position must respect directional constraints
+            if (moveDirection == Direction.HORIZONTAL) {
+                box.setLocation(targetX, fixedY);
+            } else {
+                box.setLocation(fixedX, targetY);
+            }
+            
             if (onComplete != null) {
                 onComplete.run();
             }
@@ -144,93 +176,66 @@ public class AnimationHandler {
     }
     
     /**
-     * Applies the selected easing function to the linear progress value.
-     */
-    private float applyEasing(float t) {
-        switch (easingType) {
-            case LINEAR: 
-                return t;
-            case EASE_IN_QUAD: 
-                return easeInQuad(t);
-            case EASE_OUT_QUAD: 
-                return easeOutQuad(t);
-            case EASE_IN_OUT_QUAD: 
-                return easeInOutQuad(t);
-            case EASE_OUT_BACK: 
-                return easeOutBack(t);
-            case EASE_OUT_BOUNCE: 
-                return easeOutBounce(t);
-            default: 
-                return easeOutQuad(t); // Default fallback
-        }
-    }
-    
-    // Linear easing (no easing)
-    private float linear(float t) {
-        return t;
-    }
-    
-    // Quadratic easing in
-    private float easeInQuad(float t) {
-        return t * t;
-    }
-    
-    // Quadratic easing out
-    private float easeOutQuad(float t) {
-        return t * (2 - t);
-    }
-    
-    // Quadratic easing in/out
-    private float easeInOutQuad(float t) {
-        return t < 0.5f ? 2 * t * t : -1 + (4 - 2 * t) * t;
-    }
-    
-    // Back easing out - slight overshoot
-    private float easeOutBack(float t) {
-        float s = 1.70158f;
-        return (t = t - 1) * t * ((s + 1) * t + s) + 1;
-    }
-    
-    // Bounce easing out
-    private float easeOutBounce(float t) {
-        if (t < (1/2.75f)) {
-            return 7.5625f * t * t;
-        } else if (t < (2/2.75f)) {
-            return 7.5625f * (t -= (1.5f/2.75f)) * t + 0.75f;
-        } else if (t < (2.5/2.75)) {
-            return 7.5625f * (t -= (2.25f/2.75f)) * t + 0.9375f;
-        } else {
-            return 7.5625f * (t -= (2.625f/2.75f)) * t + 0.984375f;
-        }
-    }
-
-    /**
-     * Starts the animation.
+     * Starts the animation
      */
     public void start() {
         this.startTimeNano = System.nanoTime();
         timer.start();
     }
-
+    
     /**
-     * Stops the animation immediately without calling the onComplete handler.
+     * Stops the animation immediately
      */
     public void stop() {
         timer.stop();
     }
     
     /**
-     * Sets the easing type for this animation.
+     * Determines movement direction based on row and column positions
+     * 
+     * @param startRow Starting row of the box
+     * @param startCol Starting column of the box
+     * @param targetX Target X position (physical pixels)
+     * @param targetY Target Y position (physical pixels)
+     * @return An array with [horizontalDirection, verticalDirection]
      */
-    public void setEasingType(EasingType type) {
-        this.easingType = type;
-    }
-    
-    /**
-     * Returns a random easing type for variety in animations.
-     */
-    public static EasingType getRandomEasing() {
-        EasingType[] types = EasingType.values();
-        return types[(int)(Math.random() * types.length)];
+    private int[] getDirectionFromBoxPositions(int startRow, int startCol, int targetX, int targetY) {
+        int[] direction = new int[2];
+        
+        // Use GamePanel's row/col coordinates to determine logical direction
+        // Check if key press intent was left/right
+        if (targetX < startX) {
+            // Left direction
+            direction[0] = -1;
+            direction[1] = 0;
+            System.out.println("Detected LEFT intent from row/col and target");
+        } else if (targetX > startX) {
+            // Right direction
+            direction[0] = 1;
+            direction[1] = 0;
+            System.out.println("Detected RIGHT intent from row/col and target");
+        } 
+        // Check if key press intent was up/down
+        else if (targetY < startY) {
+            // Up direction
+            direction[0] = 0;
+            direction[1] = -1;
+            System.out.println("Detected UP intent from row/col and target");
+        } else if (targetY > startY) {
+            // Down direction
+            direction[0] = 0;
+            direction[1] = 1;
+            System.out.println("Detected DOWN intent from row/col and target");
+        } 
+        // Fallback - use controller-provided positions
+        else {
+            // Default to right direction if cannot determine
+            // We just need to make SOME movement
+            direction[0] = 1;
+            direction[1] = 0;
+            System.out.println("FALLBACK direction - defaulting to RIGHT");
+        }
+        
+        return direction;
     }
 }

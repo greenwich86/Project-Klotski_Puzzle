@@ -22,6 +22,8 @@ public class GamePanel extends ListenerPanel {
     private int steps;
     private int GRID_SIZE;
     private BoxComponent selectedBox;
+    private int horizontalPadding = 150; // Fixed padding for all methods
+    private int verticalPadding = 100;   // Fixed padding for all methods
 
     public GamePanel(MapModel model) {
         boxes = new ArrayList<>();
@@ -32,25 +34,60 @@ public class GamePanel extends ListenerPanel {
         
         // Calculate optimized GRID_SIZE based on model dimensions
         int maxDimension = Math.max(model.getWidth(), model.getHeight());
-        int minDimension = Math.min(model.getWidth(), model.getHeight());
-        GRID_SIZE = Math.min(70, Math.max(45, 500 / maxDimension - (maxDimension - minDimension) * 2));
         
-        System.out.println("Calculated GRID_SIZE: " + GRID_SIZE + 
+        // Adaptive grid size calculation to ensure entire board is visible
+        // Calculate available screen size
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        int availableWidth = (int)(screenSize.width * 0.8); // Use 80% of screen width
+        int availableHeight = (int)(screenSize.height * 0.8); // Use 80% of screen height
+        
+        // Calculate maximum possible grid size based on screen constraints
+        int maxWidthGridSize = (availableWidth - 300) / model.getWidth(); // Account for padding
+        int maxHeightGridSize = (availableHeight - 200) / model.getHeight(); // Account for padding
+        
+        // Choose the smaller of the two to ensure the board fits
+        int adaptiveGridSize = Math.min(maxWidthGridSize, maxHeightGridSize);
+        
+        // Set bounds for grid size
+        adaptiveGridSize = Math.max(40, Math.min(70, adaptiveGridSize));
+        
+        // Use the adaptive grid size
+        GRID_SIZE = adaptiveGridSize;
+        
+        System.out.println("Using adaptive grid size: " + GRID_SIZE + " for board " + 
+                         model.getWidth() + "x" + model.getHeight() + 
+                         " (max dimension: " + maxDimension + ")");
+        
+        System.out.println("Standardized GRID_SIZE: " + GRID_SIZE + 
                          " for board " + model.getWidth() + "x" + model.getHeight());
         
-        // Calculate panel size with dynamic padding
-        int padding = Math.max(10, GRID_SIZE / 4);
-        int width = model.getWidth() * GRID_SIZE + padding * 2;
-        int height = (model.getHeight() + 1) * GRID_SIZE + padding * 2; // +1 for exit
+        // Calculate board dimensions
+        int boardWidth = model.getWidth() * GRID_SIZE;
+        int boardHeight = model.getHeight() * GRID_SIZE;
+        
+        // Space for exit area below board
+        int exitSpace = GRID_SIZE + 20;
+        
+        // Calculate panel size to ensure centered board
+        int width = boardWidth + horizontalPadding * 2;
+        int height = boardHeight + verticalPadding * 2 + exitSpace;
         
         System.out.println("Panel dimensions: " + width + "x" + height);
         
         // Set sizes and ensure proper layout
-        this.setPreferredSize(new Dimension(width, height));
-        this.setMinimumSize(new Dimension(width, height));
-        this.setSize(width, height);
+        // Set the panel size with a little extra margin to ensure no scrolling is needed
+        Dimension panelSize = new Dimension(width + 20, height + 20);
+        this.setPreferredSize(panelSize);
+        this.setMinimumSize(panelSize);
+        this.setSize(panelSize);
         this.model = model;
         this.selectedBox = null;
+        
+        // Validate layout early to ensure proper dimensions
+        this.validate();
+        
+        // Set background color
+        this.setBackground(new Color(240, 240, 255)); // Light blue-gray
         
         try {
             initialGame();
@@ -135,32 +172,50 @@ public class GamePanel extends ListenerPanel {
                 }
                 
                 if (box != null) {
-                    // Calculate precisely centered position
-                    int boardWidth = model.getWidth() * GRID_SIZE;
-                    int boardHeight = model.getHeight() * GRID_SIZE;
-                    // Calculate position with dynamic padding
-                    int panelWidth = this.getWidth();
-                    int panelHeight = this.getHeight();
-                    int xOffset = (panelWidth - boardWidth) / 2;
-                    int yOffset = (panelHeight - boardHeight - GRID_SIZE) / 3; // Adjusted vertical centering
-                    
-                    // Ensure minimum padding
-                    if (xOffset < 10) xOffset = 10;
-                    if (yOffset < 10) yOffset = 10;
-                    
-                    // Calculate precise position accounting for block type
-                    int x = xOffset + j * GRID_SIZE;
-                    int y = yOffset + i * GRID_SIZE;
-                    
-                    // Special adjustment for Guan Yu blocks to ensure proper grid alignment
-                    if (blockType == MapModel.GUAN_YU) {
-                        x = xOffset + j * GRID_SIZE;
-                        y = yOffset + i * GRID_SIZE;
-                        // Verify the block spans exactly 2 grid cells horizontally
+                // Fixed offsets to ensure consistent positioning across all pieces
+                // Calculate precise centered position using fixed values instead of dynamic ones
+                int boardWidth = model.getWidth() * GRID_SIZE;
+                int boardHeight = model.getHeight() * GRID_SIZE;
+                
+                // Fixed padding values that won't change with panel resizing
+                int xOffset = horizontalPadding;
+                int yOffset = verticalPadding;
+                
+                // Ensure these are consistent with what's used in paintComponent
+                if (xOffset < 100) xOffset = 100;
+                if (yOffset < 80) yOffset = 80;
+                
+                // Calculate precise grid-aligned position
+                int x = xOffset + j * GRID_SIZE;
+                int y = yOffset + i * GRID_SIZE;
+                
+                // Debug precise positioning
+                System.out.println("Box at [" + i + "," + j + "] positioned at exact coordinates: " + 
+                                  x + "," + y + " with grid size " + GRID_SIZE);
+                
+                // Ensure all block types maintain proper grid alignment
+                switch (blockType) {
+                    case MapModel.GUAN_YU: // 2x1 horizontal
                         if (box.getWidth() != GRID_SIZE * 2) {
                             box.setSize(GRID_SIZE * 2, GRID_SIZE);
                         }
-                    }
+                        break;
+                    case MapModel.GENERAL: // 1x2 vertical
+                        if (box.getHeight() != GRID_SIZE * 2) {
+                            box.setSize(GRID_SIZE, GRID_SIZE * 2);
+                        }
+                        break;
+                    case MapModel.CAO_CAO: // 2x2
+                        if (box.getWidth() != GRID_SIZE * 2 || box.getHeight() != GRID_SIZE * 2) {
+                            box.setSize(GRID_SIZE * 2, GRID_SIZE * 2);
+                        }
+                        break;
+                    case MapModel.ZHOU_YU: // 3x1 horizontal
+                        if (box.getWidth() != GRID_SIZE * 3) {
+                            box.setSize(GRID_SIZE * 3, GRID_SIZE);
+                        }
+                        break;
+                }
                     
                     System.out.printf("Block at %d,%d positioned at %d,%d (offset %d,%d)\n",
                         i, j, x, y, xOffset, yOffset);
@@ -307,23 +362,17 @@ public class GamePanel extends ListenerPanel {
         // Unified background drawing with perfect alignment
         Graphics2D g2d = (Graphics2D)g;
         
-        // Calculate chessboard dimensions
+        // Use the same fixed offsets for board background as used for pieces
         int boardWidth = model.getWidth() * GRID_SIZE;
         int boardHeight = model.getHeight() * GRID_SIZE;
         
-        // Calculate position accounting for level dimensions
-        int xOffset = (this.getWidth() - boardWidth) / 2;
-        int yOffset;
+        // Use the same fixed values as initialGame to ensure consistency
+        int xOffset = horizontalPadding;
+        int yOffset = verticalPadding;
         
-        // Special handling for level 3 (5x4 grid)
-        if (model.getWidth() == 5 && model.getHeight() == 4) {
-            // Precise calculation for level 3 (5x4 grid) with higher positioning
-            yOffset = (this.getHeight() - boardHeight - GRID_SIZE) / 3;
-            // Additional upward adjustment
-            yOffset = Math.max(10, yOffset - 8);
-        } else {
-            yOffset = (this.getHeight() - boardHeight - GRID_SIZE) / 3;
-        }
+        // Ensure minimum consistent margins
+        if (xOffset < 100) xOffset = 100;
+        if (yOffset < 80) yOffset = 80;
         
         // Draw background with level-specific adjustments
         g2d.setColor(new Color(240, 240, 255)); // Light blue-gray

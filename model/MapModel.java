@@ -26,24 +26,24 @@ public class MapModel {
             {GENERAL, SOLDIER, SOLDIER, GENERAL},
             {GENERAL, GUAN_YU, GUAN_YU, GENERAL}
         },
-        // Level 2 - Expert (5x6 with complex obstacles)
+        // Level 2 - Expert (5x6) with Cao Cao at top middle
         {
-            {BLOCKED, CAO_CAO, CAO_CAO, BLOCKED, GENERAL, 0},
-            {BLOCKED, CAO_CAO, CAO_CAO, BLOCKED, GENERAL, 0},
-            {SOLDIER, BLOCKED, BLOCKED, SOLDIER, BLOCKED, SOLDIER},
-            {GENERAL, SOLDIER, SOLDIER, GENERAL, SOLDIER, BLOCKED},
-            {GENERAL, GUAN_YU, GUAN_YU, GENERAL, SOLDIER, 0},
-            {SOLDIER, BLOCKED, BLOCKED, SOLDIER, 0, 0}
+            {0, BLOCKED, CAO_CAO, CAO_CAO, BLOCKED},
+            {0, BLOCKED, CAO_CAO, CAO_CAO, BLOCKED},
+            {SOLDIER, SOLDIER, 0, 0, SOLDIER},
+            {GENERAL, GENERAL, SOLDIER, SOLDIER, GENERAL},
+            {0, GENERAL, GUAN_YU, GUAN_YU, GENERAL},
+            {0, SOLDIER, 0, BLOCKED, SOLDIER}
         },
-        // Level 3 - Master (6x7 with multiple challenges)
+        // Level 3 - Master (6x7) with Cao Cao at top middle
         {
-            {BLOCKED, CAO_CAO, CAO_CAO, BLOCKED, GENERAL, 0, 0},
-            {BLOCKED, CAO_CAO, CAO_CAO, BLOCKED, GENERAL, 0, 0},
-            {SOLDIER, BLOCKED, BLOCKED, SOLDIER, BLOCKED, SOLDIER, 0},
-            {GENERAL, SOLDIER, SOLDIER, GENERAL, SOLDIER, BLOCKED, 0},
-            {GENERAL, GUAN_YU, GUAN_YU, GENERAL, SOLDIER, 0, 0},
-            {SOLDIER, ZHOU_YU, ZHOU_YU, ZHOU_YU, SOLDIER, 0, 0},
-            {BLOCKED, 0, 0, BLOCKED, 0, 0, 0}
+            {0, 0, CAO_CAO, CAO_CAO, 0, 0},
+            {0, 0, CAO_CAO, CAO_CAO, 0, 0},
+            {SOLDIER, BLOCKED, 0, 0, BLOCKED, SOLDIER},
+            {GENERAL, SOLDIER, SOLDIER, SOLDIER, SOLDIER, GENERAL},
+            {GENERAL, GUAN_YU, GUAN_YU, GUAN_YU, GUAN_YU, GENERAL},
+            {SOLDIER, 0, 0, BLOCKED, 0, SOLDIER},
+            {0, 0, ZHOU_YU, ZHOU_YU, ZHOU_YU, 0}
         }
     };
 
