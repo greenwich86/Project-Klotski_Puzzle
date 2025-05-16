@@ -1,21 +1,29 @@
 package controller;
 
+// Resolve ambiguous imports by using explicit imports
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Stack;
+import javax.swing.BorderFactory;
 import javax.swing.JOptionPane;
 import javax.swing.Timer;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Toolkit;
 import model.Direction;
 import model.MapModel;
+import model.Prop;
 import view.game.AnimationHandler;
 import view.game.BoxComponent;
 import view.game.GamePanel;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.*;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 /**
  * It is a bridge to combine GamePanel(view) and MapMatrix(model) in one game.
@@ -27,6 +35,10 @@ public class GameController {
     private Stack<int[][]> moveHistory;
     private String currentUser;
     private int currentLevel;
+    
+    // Props management
+    private Map<Prop.PropType, Prop> availableProps = new HashMap<>();
+    private ArrayList<int[]> removedObstacles = new ArrayList<>(); // [row, col, stepsRemaining]
 
     public GameController(GamePanel view, MapModel model) {
         this.moveHistory = new Stack<>();
@@ -55,7 +67,69 @@ public class GameController {
         moveHistory.push(model.copyMatrix());
         view.resetBoard(model.getMatrix());
         view.updateMoveCount(0);
+        
+        // Initialize props based on difficulty level
+        initializeProps(level);
+        
+        // Update prop panel visibility in GameFrame if possible
+        if (view.getParent() != null && view.getParent().getParent() instanceof view.game.GameFrame) {
+            view.game.GameFrame gameFrame = (view.game.GameFrame) view.getParent().getParent();
+            gameFrame.updatePropPanelVisibility(level);
+        }
+        
         view.requestFocusInWindow();
+    }
+    
+    /**
+     * Initialize props based on the difficulty level
+     * 
+     * @param level The difficulty level (0-3)
+     */
+    public void initializeProps(int level) {
+        availableProps.clear();
+        removedObstacles.clear();
+        
+        // Check if props are allowed for this level
+        if (!MapModel.LEVEL_PROPS_ALLOWED[level]) {
+            return; // No props for Easy and Master levels
+        }
+        
+        // Initialize props based on difficulty
+        if (level == 1) { // Hard level
+            availableProps.put(Prop.PropType.HINT, new Prop(Prop.PropType.HINT, 2));
+            availableProps.put(Prop.PropType.TIME_BONUS, new Prop(Prop.PropType.TIME_BONUS, 3));
+            availableProps.put(Prop.PropType.OBSTACLE_REMOVER, new Prop(Prop.PropType.OBSTACLE_REMOVER, 1));
+        } else if (level == 2) { // Expert level
+            availableProps.put(Prop.PropType.HINT, new Prop(Prop.PropType.HINT, 1));
+            availableProps.put(Prop.PropType.TIME_BONUS, new Prop(Prop.PropType.TIME_BONUS, 2));
+            availableProps.put(Prop.PropType.OBSTACLE_REMOVER, new Prop(Prop.PropType.OBSTACLE_REMOVER, 2));
+        }
+    }
+    
+    /**
+     * Check if a prop is available for use
+     * 
+     * @param type The prop type to check
+     * @return true if the prop is available
+     */
+    public boolean isPropAvailable(Prop.PropType type) {
+        if (!MapModel.LEVEL_PROPS_ALLOWED[currentLevel]) {
+            return false;
+        }
+        
+        Prop prop = availableProps.get(type);
+        return prop != null && prop.isAvailable();
+    }
+    
+    /**
+     * Get the count of a specific prop
+     * 
+     * @param type The prop type to get
+     * @return The number of props available, or 0 if none
+     */
+    public int getPropCount(Prop.PropType type) {
+        Prop prop = availableProps.get(type);
+        return prop != null ? prop.getCount() : 0;
     }
 
     public void restartGame() {
@@ -72,6 +146,16 @@ public class GameController {
         moveHistory.push(model.copyMatrix());
         view.resetBoard(model.getMatrix());
         view.updateMoveCount(0);
+        
+        // Initialize props based on difficulty level
+        initializeProps(level);
+        
+        // Update prop panel visibility in GameFrame if possible
+        if (view.getParent() != null && view.getParent().getParent() instanceof view.game.GameFrame) {
+            view.game.GameFrame gameFrame = (view.game.GameFrame) view.getParent().getParent();
+            gameFrame.updatePropPanelVisibility(level);
+        }
+        
         view.requestFocusInWindow();
     }
 
@@ -95,6 +179,9 @@ public class GameController {
 
     private boolean canMove(int row, int col, int width, int height, Direction direction) {
         // System.err.println("Checking move from ["+row+"]["+col+"] size "+width+"x"+height+" dir "+direction);
+        
+        // Get the block type being moved
+        int blockType = model.getId(row, col);
 
         // Check boundaries first
         if (direction == Direction.UP && row == 0) return false;
@@ -105,22 +192,42 @@ public class GameController {
         // Check all cells in movement direction
         if (direction == Direction.UP) {
             for (int c = col; c < col + width; c++) {
-                if (model.getId(row - 1, c) > 0) return false;
+                int targetCell = model.getId(row - 1, c);
+                if (targetCell > 0) return false;
+                
+                // Check if soldier is trying to step on military camp in Master level
+                if (blockType == MapModel.SOLDIER && 
+                    targetCell == MapModel.MILITARY_CAMP) return false;
             }
         }
         else if (direction == Direction.DOWN) {
             for (int c = col; c < col + width; c++) {
-                if (model.getId(row + height, c) > 0) return false;
+                int targetCell = model.getId(row + height, c);
+                if (targetCell > 0) return false;
+                
+                // Check if soldier is trying to step on military camp in Master level
+                if (blockType == MapModel.SOLDIER && 
+                    targetCell == MapModel.MILITARY_CAMP) return false;
             }
         }
         else if (direction == Direction.LEFT) {
             for (int r = row; r < row + height; r++) {
-                if (model.getId(r, col - 1) > 0) return false;
+                int targetCell = model.getId(r, col - 1);
+                if (targetCell > 0) return false;
+                
+                // Check if soldier is trying to step on military camp in Master level
+                if (blockType == MapModel.SOLDIER && 
+                    targetCell == MapModel.MILITARY_CAMP) return false;
             }
         }
         else if (direction == Direction.RIGHT) {
             for (int r = row; r < row + height; r++) {
-                if (model.getId(r, col + width) > 0) return false;
+                int targetCell = model.getId(r, col + width);
+                if (targetCell > 0) return false;
+                
+                // Check if soldier is trying to step on military camp in Master level
+                if (blockType == MapModel.SOLDIER && 
+                    targetCell == MapModel.MILITARY_CAMP) return false;
             }
         }
 
@@ -240,7 +347,7 @@ public class GameController {
             box.setAnimating(true);
             
             // Use a fixed animation duration for all pieces - longer to ensure smooth movement
-            int animationDuration = 250; // Increased duration for smoother animation
+            int animationDuration = 350; // Increased duration for even smoother animation
             
             // Debug print
             System.out.println("Animating piece " + blockType + 
@@ -279,6 +386,9 @@ public class GameController {
                     moveHistory.push(model.copyMatrix());
                     moveCount++;
                     view.updateMoveCount(moveCount);
+                    
+                    // Check for obstacle restoration
+                    checkObstacleRestoration();
                     
                     // Check for victory
                     checkVictoryCondition(blockType, nextRow, nextCol);
@@ -374,6 +484,219 @@ public class GameController {
                     model.getMatrix()[nextRow + r][nextCol + c] = blockType;
                 }
             }
+        }
+    }
+    
+    /**
+     * Use the hint prop to show the next best move
+     */
+    public boolean useHintProp() {
+        if (!isPropAvailable(Prop.PropType.HINT)) {
+            return false;
+        }
+        
+        // Use AI solver to find the best move
+        model.AISolver solver = new model.AISolver(this.model, this);
+        if (solver.findSolution()) {
+            // Get the first move from the solution if available
+            if (solver.getSolutionLength() > 0) {
+                // We can access the Move directly from the solver's execute method
+                // Show a hint dialog with the suggested move
+                JOptionPane.showMessageDialog(view,
+                    "Hint: Found a solution path with " + solver.getSolutionLength() + " moves!",
+                    "Hint",
+                    JOptionPane.INFORMATION_MESSAGE);
+                
+                // Flash the piece that should be moved next to highlight it
+                highlightNextMove(view.getSelectedBox());
+                
+                // Consume the prop
+                Prop hintProp = availableProps.get(Prop.PropType.HINT);
+                hintProp.use();
+                
+                return true;
+            }
+            
+            // Fallback message
+            JOptionPane.showMessageDialog(view,
+                "Hint: Try moving a piece toward the exit!",
+                "Hint",
+                JOptionPane.INFORMATION_MESSAGE);
+            
+            // Consume the prop
+            Prop hintProp = availableProps.get(Prop.PropType.HINT);
+            hintProp.use();
+            
+            return true;
+        } else {
+            JOptionPane.showMessageDialog(view,
+                "Sorry, no solution found from the current position.",
+                "Hint",
+                JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+    }
+    
+    /**
+     * Highlights the next piece to move with a flashing effect
+     * 
+     * @param piece The box component to highlight
+     */
+    private void highlightNextMove(BoxComponent piece) {
+        if (piece == null) return;
+        
+        // Store original colors
+        final Color originalBackground = piece.getBackground();
+        // Work around the isSelected() method issue by using a direct check of the border
+        final boolean wasSelected = piece.getBorder() != null && 
+            piece.getBorder().equals(BorderFactory.createLineBorder(Color.red, 3));
+        
+        // Create a flash animation
+        Timer flashTimer = new Timer(200, new ActionListener() {
+            private int count = 0;
+            private final Color highlightColor = Color.YELLOW;
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (count % 2 == 0) {
+                    // Highlight phase
+                    piece.setBackground(highlightColor);
+                    piece.setSelected(true);
+                } else {
+                    // Normal phase
+                    piece.setBackground(originalBackground);
+                    piece.setSelected(wasSelected);
+                }
+                
+                piece.repaint();
+                count++;
+                
+                // Stop after 6 flashes (3 cycles)
+                if (count >= 6) {
+                    ((Timer)e.getSource()).stop();
+                    
+                    // Restore original state
+                    piece.setBackground(originalBackground);
+                    piece.setSelected(wasSelected);
+                    piece.repaint();
+                }
+            }
+        });
+        
+        flashTimer.setRepeats(true);
+        flashTimer.start();
+    }
+    
+    /**
+     * Use the time bonus prop to add time
+     * 
+     * @return true if successful, false if the prop is not available or time attack mode is not active
+     */
+    public boolean useTimeBonusProp(view.game.GameFrame gameFrame) {
+        if (!isPropAvailable(Prop.PropType.TIME_BONUS)) {
+            return false;
+        }
+        
+        // Try to add time to the game frame
+        boolean success = gameFrame.addTimeToTimer(30); // Add 30 seconds
+        
+        if (success) {
+            // Consume the prop
+            Prop timeProp = availableProps.get(Prop.PropType.TIME_BONUS);
+            timeProp.use();
+        } else {
+            JOptionPane.showMessageDialog(view,
+                "Time Bonus can only be used in Time Attack mode!",
+                "Time Bonus",
+                JOptionPane.WARNING_MESSAGE);
+        }
+        
+        return success;
+    }
+    
+    /**
+     * Use the obstacle remover prop to temporarily remove an obstacle
+     * 
+     * @param row Row position of the obstacle
+     * @param col Column position of the obstacle
+     * @return true if successful, false if the prop is not available or the target is not a removable obstacle
+     */
+    public boolean useObstacleRemoverProp(int row, int col) {
+        if (!isPropAvailable(Prop.PropType.OBSTACLE_REMOVER)) {
+            return false;
+        }
+        
+        // Check if the target is a removable obstacle
+        if (model.getId(row, col) != MapModel.BLOCKED) {
+            JOptionPane.showMessageDialog(view,
+                "This prop can only be used on obstacles.",
+                "Obstacle Remover",
+                JOptionPane.WARNING_MESSAGE);
+            return false;
+        }
+        
+        // Determine how many steps the obstacle will be removed for
+        int stepsRemoved = (currentLevel == 1) ? 3 : 2; // Hard level: 3 steps, Expert level: 2 steps
+        
+        // Store the obstacle information for restoration
+        removedObstacles.add(new int[] {row, col, stepsRemoved});
+        
+        // Remove the obstacle
+        model.getMatrix()[row][col] = 0;
+        
+        // Update the view
+        view.resetBoard(model.getMatrix());
+        
+        // Consume the prop
+        Prop obstacleProp = availableProps.get(Prop.PropType.OBSTACLE_REMOVER);
+        obstacleProp.use();
+        
+        JOptionPane.showMessageDialog(view,
+            "Obstacle removed temporarily! It will reappear after " + stepsRemoved + " moves.",
+            "Obstacle Remover",
+            JOptionPane.INFORMATION_MESSAGE);
+        
+        return true;
+    }
+    
+    /**
+     * Check if any removed obstacles need to be restored after a move
+     */
+    private void checkObstacleRestoration() {
+        if (removedObstacles.isEmpty()) {
+            return;
+        }
+        
+        ArrayList<int[]> obstaclesRestored = new ArrayList<>();
+        
+        // Decrement step counters and restore obstacles that have reached zero
+        for (int[] obstacle : removedObstacles) {
+            int row = obstacle[0];
+            int col = obstacle[1];
+            int stepsLeft = obstacle[2] - 1;
+            
+            if (stepsLeft <= 0) {
+                // Restore the obstacle
+                model.getMatrix()[row][col] = MapModel.BLOCKED;
+                obstaclesRestored.add(obstacle);
+                
+                // Notify the user
+                JOptionPane.showMessageDialog(view,
+                    "An obstacle has reappeared!",
+                    "Obstacle Restored",
+                    JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                // Update the steps counter
+                obstacle[2] = stepsLeft;
+            }
+        }
+        
+        // Remove restored obstacles from the list
+        removedObstacles.removeAll(obstaclesRestored);
+        
+        // Update the view if any obstacles were restored
+        if (!obstaclesRestored.isEmpty()) {
+            view.resetBoard(model.getMatrix());
         }
     }
     
@@ -483,14 +806,27 @@ public class GameController {
                 savesDir.mkdir();
             }
 
-            JSONObject saveData = new JSONObject();
-            saveData.put("username", currentUser);
-            saveData.put("moveCount", moveCount);
-            saveData.put("boardState", model.getMatrix());
-
-            File saveFile = new File("saves/" + currentUser + ".json");
-            try (FileWriter writer = new FileWriter(saveFile)) {
-                writer.write(saveData.toString(2)); // Pretty print with 2-space indent
+            File saveFile = new File("saves/" + currentUser + ".sav");
+            try (FileOutputStream fos = new FileOutputStream(saveFile);
+                 DataOutputStream dos = new DataOutputStream(fos)) {
+                
+                // Write username
+                dos.writeUTF(currentUser);
+                
+                // Write move count
+                dos.writeInt(moveCount);
+                
+                // Write board dimensions
+                dos.writeInt(model.getHeight());
+                dos.writeInt(model.getWidth());
+                
+                // Write board state
+                for (int i = 0; i < model.getHeight(); i++) {
+                    for (int j = 0; j < model.getWidth(); j++) {
+                        dos.writeInt(model.getMatrix()[i][j]);
+                    }
+                }
+                
                 JOptionPane.showMessageDialog(view, "Game saved successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
             }
         } catch (Exception e) {
@@ -522,22 +858,22 @@ public class GameController {
      * @return The selected BoxComponent, or null if no box at position
      */
     public BoxComponent selectBoxAt(int row, int col) {
-        // Find the box at the specified position
-        for (Component component : view.getComponents()) {
-            if (component instanceof BoxComponent) {
-                BoxComponent box = (BoxComponent) component;
-                if (box.getRow() == row && box.getCol() == col) {
-                    // Select this box and deselect any previously selected box
-                    BoxComponent previousBox = view.getSelectedBox();
-                    if (previousBox != null) {
-                        previousBox.setSelected(false);
-                    }
-                    box.setSelected(true);
-                    return box;
+        // Find the box at the specified position using the boxes list directly
+        for (BoxComponent box : view.getBoxes()) {
+            if (box.getRow() == row && box.getCol() == col) {
+                // Select this box and deselect any previously selected box
+                BoxComponent previousBox = view.getSelectedBox();
+                if (previousBox != null) {
+                    previousBox.setSelected(false);
                 }
+                box.setSelected(true);
+                // Set this box as the selected box in the view
+                view.selectedBox = box;
+                return box;
             }
         }
         
+        System.out.println("No box found at position [" + row + "," + col + "]");
         return null;
     }
 
@@ -547,50 +883,43 @@ public class GameController {
             return false;
         }
 
-        File saveFile = new File("saves/" + currentUser + ".json");
+        File saveFile = new File("saves/" + currentUser + ".sav");
         if (!saveFile.exists()) {
             JOptionPane.showMessageDialog(view, "No saved game found", "Error", JOptionPane.ERROR_MESSAGE);
             return false;
         }
 
-        try {
-            StringBuilder json = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(new FileReader(saveFile))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    json.append(line);
-                }
-            }
-
-            JSONObject saveData = new JSONObject(json.toString());
-            if (!saveData.has("username") || !saveData.has("moveCount") || !saveData.has("boardState")) {
-                throw new Exception("Invalid save file format");
-            }
-
-            // Verify the save belongs to current user
-            if (!saveData.getString("username").equals(currentUser)) {
+        try (FileInputStream fis = new FileInputStream(saveFile);
+             DataInputStream dis = new DataInputStream(fis)) {
+            
+            // Read username
+            String username = dis.readUTF();
+            if (!username.equals(currentUser)) {
                 throw new Exception("Save file does not belong to current user");
             }
-
-            // Restore game state
-            moveCount = saveData.getInt("moveCount");
-            JSONArray boardArray = saveData.getJSONArray("boardState");
-            int[][] loadedMatrix = new int[boardArray.length()][];
-            for (int i = 0; i < boardArray.length(); i++) {
-                JSONArray row = boardArray.getJSONArray(i);
-                loadedMatrix[i] = new int[row.length()];
-                for (int j = 0; j < row.length(); j++) {
-                    loadedMatrix[i][j] = row.getInt(j);
+            
+            // Read move count
+            moveCount = dis.readInt();
+            
+            // Read board dimensions
+            int height = dis.readInt();
+            int width = dis.readInt();
+            
+            // Read board state
+            int[][] loadedMatrix = new int[height][width];
+            for (int i = 0; i < height; i++) {
+                for (int j = 0; j < width; j++) {
+                    loadedMatrix[i][j] = dis.readInt();
                 }
             }
-
+            
             this.model = new MapModel(loadedMatrix);
             this.moveHistory.clear();
             this.moveHistory.push(model.copyMatrix());
             view.resetBoard(loadedMatrix);
             view.updateMoveCount(moveCount);
             view.requestFocusInWindow();
-
+            
             return true;
         } catch (Exception e) {
             JOptionPane.showMessageDialog(view, "Failed to load game: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);

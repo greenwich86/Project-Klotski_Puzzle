@@ -21,7 +21,7 @@ public class GamePanel extends ListenerPanel {
     private JLabel stepLabel;
     private int steps;
     private int GRID_SIZE;
-    private BoxComponent selectedBox;
+    public BoxComponent selectedBox;
     private int horizontalPadding = 150; // Fixed padding for all methods
     private int verticalPadding = 100;   // Fixed padding for all methods
 
@@ -255,43 +255,68 @@ public class GamePanel extends ListenerPanel {
         }
     }
 
+    /**
+     * Checks if any box in the game is currently animating
+     * @return true if any box is animating, false otherwise
+     */
+    private boolean isAnyBoxAnimating() {
+        for (BoxComponent box : boxes) {
+            if (box.isAnimating()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void doMoveRight() {
         System.out.println("Click VK_RIGHT");
-        if (selectedBox != null) {
+        // Only allow move if no animations are currently running
+        if (selectedBox != null && !isAnyBoxAnimating()) {
             if (controller.doMove(selectedBox.getRow(), selectedBox.getCol(), Direction.RIGHT)) {
                 afterMove();
             }
+        } else if (isAnyBoxAnimating()) {
+            System.out.println("Ignoring move - animation in progress");
         }
     }
 
     @Override
     public void doMoveLeft() {
         System.out.println("Click VK_LEFT");
-        if (selectedBox != null) {
+        // Only allow move if no animations are currently running
+        if (selectedBox != null && !isAnyBoxAnimating()) {
             if (controller.doMove(selectedBox.getRow(), selectedBox.getCol(), Direction.LEFT)) {
                 afterMove();
             }
+        } else if (isAnyBoxAnimating()) {
+            System.out.println("Ignoring move - animation in progress");
         }
     }
 
     @Override
     public void doMoveUp() {
         System.out.println("Click VK_Up");
-        if (selectedBox != null) {
+        // Only allow move if no animations are currently running
+        if (selectedBox != null && !isAnyBoxAnimating()) {
             if (controller.doMove(selectedBox.getRow(), selectedBox.getCol(), Direction.UP)) {
                 afterMove();
             }
+        } else if (isAnyBoxAnimating()) {
+            System.out.println("Ignoring move - animation in progress");
         }
     }
 
     @Override
     public void doMoveDown() {
         System.out.println("Click VK_DOWN");
-        if (selectedBox != null) {
+        // Only allow move if no animations are currently running
+        if (selectedBox != null && !isAnyBoxAnimating()) {
             if (controller.doMove(selectedBox.getRow(), selectedBox.getCol(), Direction.DOWN)) {
                 afterMove();
             }
+        } else if (isAnyBoxAnimating()) {
+            System.out.println("Ignoring move - animation in progress");
         }
     }
 
@@ -326,6 +351,10 @@ public class GamePanel extends ListenerPanel {
 
     public int getGRID_SIZE() {
         return GRID_SIZE;
+    }
+    
+    public List<BoxComponent> getBoxes() {
+        return boxes;
     }
 
     public void resetBoard(int[][] newMatrix) {

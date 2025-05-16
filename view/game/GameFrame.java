@@ -24,6 +24,7 @@ public class GameFrame extends JFrame {
     private JLabel timerLabel;
     private GamePanel gamePanel;
     private Timer countdownTimer;
+    private PropPanel propPanel;
 
     public GameFrame(int width, int height, MapModel mapModel) {
         this(width, height, mapModel, null);
@@ -59,6 +60,20 @@ public class GameFrame extends JFrame {
         controlPanel.setLayout(new BoxLayout(controlPanel, BoxLayout.Y_AXIS));
         controlPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         
+        // Create props panel with more prominence and visibility
+        propPanel = new PropPanel(controller, this);
+        propPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        propPanel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(100, 100, 255), 3),
+            BorderFactory.createEmptyBorder(5, 5, 5, 5)
+        ));
+        propPanel.setBackground(new Color(230, 230, 255));
+        propPanel.setOpaque(true);
+        propPanel.setVisible(MapModel.LEVEL_PROPS_ALLOWED[controller.getCurrentLevel()]);
+        // Set minimum size to ensure visibility
+        propPanel.setMinimumSize(new Dimension(200, 180));
+        propPanel.setPreferredSize(new Dimension(220, 200));
+        
         // Step counter and timer
         JPanel statsPanel = new JPanel();
         statsPanel.setLayout(new BoxLayout(statsPanel, BoxLayout.Y_AXIS));
@@ -80,6 +95,11 @@ public class GameFrame extends JFrame {
         
         controlPanel.add(statsPanel);
         controlPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+        
+        // Add the props panel
+        controlPanel.add(propPanel);
+        controlPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+        
         gamePanel.setStepLabel(stepLabel);
 
         // AI button to automatically solve puzzle
@@ -283,6 +303,81 @@ public class GameFrame extends JFrame {
         this.parentFrame = parentFrame;
     }
     
+    /**
+     * Updates the visibility of the prop panel based on the current level
+     * 
+     * @param level The current level (0-3)
+     */
+    public void updatePropPanelVisibility(int level) {
+        if (propPanel != null) {
+            boolean propsAllowed = MapModel.LEVEL_PROPS_ALLOWED[level];
+            propPanel.setVisible(true); // Always show prop panel for UI consistency
+            
+            if (!propsAllowed) {
+                // For levels with no props, display information but keep panel visible
+                if (level == 3) { // Master level
+                    propPanel.setToolTipText("Props are disabled in Master difficulty");
+                    propPanel.setBorder(BorderFactory.createTitledBorder(
+                        BorderFactory.createLineBorder(Color.RED, 2),
+                        "Props (Disabled in Master)"
+                    ));
+                } else { // Easy level
+                    propPanel.setToolTipText("Props are disabled in Easy difficulty");
+                    propPanel.setBorder(BorderFactory.createTitledBorder(
+                        BorderFactory.createLineBorder(Color.GRAY, 2),
+                        "Props (Disabled in Easy)"
+                    ));
+                }
+            } else {
+                // Show active prop panel for Hard and Expert levels
+                propPanel.setToolTipText("Use props to help solve the puzzle");
+                propPanel.setBorder(BorderFactory.createTitledBorder(
+                    BorderFactory.createLineBorder(new Color(100, 100, 255), 3),
+                    "Available Props"
+                ));
+                
+                // Reinitialize controller's props to ensure they're properly set up
+                controller.initializeProps(level);
+            }
+            
+            // Always update prop availability regardless of level
+            propPanel.updatePropAvailability();
+            
+            // Force repaint and revalidation
+            propPanel.revalidate();
+            propPanel.repaint();
+        }
+    }
+    
+    // Store remaining time
+    private int currentTimeLeft = 0;
+    
+    /**
+     * Adds time to the countdown timer (for Time Bonus prop)
+     * 
+     * @param secondsToAdd Number of seconds to add to the timer
+     * @return True if time was added successfully, false if not in time attack mode
+     */
+    public boolean addTimeToTimer(int secondsToAdd) {
+        if (!timeAttackMode || countdownTimer == null || !countdownTimer.isRunning()) {
+            return false;
+        }
+        
+        // Add the time to our currentTimeLeft field
+        currentTimeLeft += secondsToAdd;
+        
+        // Update the timer display
+        updateTimerDisplay(currentTimeLeft);
+        
+        // Show notification
+        JOptionPane.showMessageDialog(this,
+            "Time Bonus: " + secondsToAdd + " seconds added!",
+            "Time Bonus",
+            JOptionPane.INFORMATION_MESSAGE);
+        
+        return true;
+    }
+
     /**
      * Enables or disables time attack mode with a specified time limit.
      * 

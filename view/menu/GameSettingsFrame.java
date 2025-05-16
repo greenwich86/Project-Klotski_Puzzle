@@ -25,6 +25,9 @@ public class GameSettingsFrame extends JFrame {
     
     // Add the missing field
     private int selectedTimeLimit;
+    
+    // UI components
+    private JPanel buttonPanel; // Panel for timer selection buttons
 
     public GameSettingsFrame(int width, int height, GameFrame gameFrame, SelectionMenuFrame parentFrame) {
         this.gameFrame = gameFrame;
@@ -55,16 +58,93 @@ public class GameSettingsFrame extends JFrame {
         difficultyPanel.setBorder(BorderFactory.createTitledBorder("Difficulty Level"));
         difficultyPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Create level buttons
+        // Create level buttons using level names from MapModel
         levelButtons = new JRadioButton[MapModel.LEVELS.length];
         ButtonGroup levelGroup = new ButtonGroup();
 
         for (int i = 0; i < MapModel.LEVELS.length; i++) {
-            levelButtons[i] = new JRadioButton("Level " + (i + 1));
+            levelButtons[i] = new JRadioButton(MapModel.LEVEL_NAMES[i]);
             levelButtons[i].setAlignmentX(Component.LEFT_ALIGNMENT);
+            
+            // Set font based on difficulty
+            if (i == MapModel.LEVELS.length - 1) { // Master level
+                levelButtons[i].setFont(new Font("serif", Font.BOLD, 16));
+                levelButtons[i].setForeground(Color.RED);
+            } else if (i == 0) { // Easy level
+                levelButtons[i].setFont(new Font("serif", Font.PLAIN, 14));
+                levelButtons[i].setForeground(Color.BLUE);
+            } else { // Other levels
+                levelButtons[i].setFont(new Font("serif", Font.PLAIN, 14));
+            }
+            
             if (i == 0) {
                 levelButtons[i].setSelected(true);
             }
+            
+            // Add tooltips for each level
+            switch (i) {
+                case 0: // Easy
+                    levelButtons[i].setToolTipText("Classic level - No props available");
+                    break;
+                case 1: // Hard
+                    levelButtons[i].setToolTipText("Harder puzzles - Props allowed");
+                    break;
+                case 2: // Expert
+                    levelButtons[i].setToolTipText("Expert difficulty - Props allowed");
+                    break;
+                case 3: // Master
+                    levelButtons[i].setToolTipText("Master difficulty - 5 minute time limit, No props, Military camps restrict soldier movement");
+                    break;
+            }
+            
+            final int level = i;
+            levelButtons[i].addActionListener(e -> {
+                // If Master level selected, enforce time attack mode
+                if (level == MapModel.LEVELS.length - 1) { // Master level
+                    timeAttackButton.setSelected(true);
+                    timeAttackButton.setEnabled(false);
+                    normalModeButton.setEnabled(false);
+                    selectedTimeLimit = MapModel.DEFAULT_MASTER_TIME_LIMIT;
+                    
+                    // Update time buttons
+                    for (Component comp : buttonPanel.getComponents()) {
+                        if (comp instanceof JButton) {
+                            JButton btn = (JButton)comp;
+                            String btnText = btn.getText();
+                            
+                            if (btnText.equals("5 MINUTES")) {
+                                btn.setBackground(new Color(100, 150, 255));
+                                btn.setForeground(Color.WHITE);
+                            } else {
+                                btn.setBackground(new Color(220, 220, 220));
+                                btn.setForeground(Color.GRAY);
+                                btn.setEnabled(false);
+                            }
+                        }
+                    }
+                    
+                    // Add warning label
+                    JOptionPane.showMessageDialog(
+                        this,
+                        "Master difficulty enforces a 5-minute time limit and contains military camps\n" +
+                        "that soldiers cannot step on. No props are available in this mode.",
+                        "Master Difficulty",
+                        JOptionPane.WARNING_MESSAGE
+                    );
+                } else {
+                    // Re-enable mode selection for non-Master levels
+                    timeAttackButton.setEnabled(true);
+                    normalModeButton.setEnabled(true);
+                    
+                    // Re-enable all timer buttons
+                    for (Component comp : buttonPanel.getComponents()) {
+                        if (comp instanceof JButton) {
+                            comp.setEnabled(true);
+                        }
+                    }
+                }
+            });
+            
             levelGroup.add(levelButtons[i]);
             difficultyPanel.add(levelButtons[i]);
             difficultyPanel.add(Box.createRigidArea(new Dimension(0, 10)));
@@ -122,7 +202,7 @@ public class GameSettingsFrame extends JFrame {
         ));
         
         // Timer button panel with extra spacing
-        JPanel buttonPanel = new JPanel();
+        this.buttonPanel = new JPanel();
         buttonPanel.setLayout(new GridLayout(3, 1, 0, 15));
         buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
         buttonPanel.setBackground(new Color(255, 240, 240));
