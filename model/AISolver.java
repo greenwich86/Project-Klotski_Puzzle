@@ -21,8 +21,9 @@ public class AISolver {
     private boolean isSearching = false; // Track when search is in progress
     
     // Constants for A* search
-    private static final int MAX_STATES = 500000; // Increased limit for complex puzzles
-    private static final int REPORT_INTERVAL = 1000; // Report progress every 1000 states
+    private static final int MAX_STATES = 1000000; // Further increased limit for complex puzzles
+    private static final int REPORT_INTERVAL = 5000; // Report progress every 5000 states
+    private static final int MIN_STATES_TO_EXPLORE = 10000; // Minimum states to explore before giving up
     
     // For loading animation
     private Timer animationTimer;
@@ -206,6 +207,7 @@ public class AISolver {
         
         // Set up A* search with priority queue
         PriorityQueue<State> openSet = new PriorityQueue<>();
+        // Use a more efficient way to track visited states - hash the board string
         Set<String> closedSet = new HashSet<>();
         
         openSet.add(initialState);
@@ -220,11 +222,26 @@ public class AISolver {
         int statesExplored = 0;
         int maxOpenSetSize = 1;
         
+        // Track best state seen so far in case we need to terminate early
+        State bestState = initialState;
+        int bestHeuristic = initialHeuristic;
+        
         // A* search loop
         while (!openSet.isEmpty() && isSearching) {
             // Get state with lowest f-score
             State current = openSet.poll();
             statesExplored++;
+            
+            // Keep track of the best state seen so far
+            if (current.heuristic < bestHeuristic) {
+                bestState = current;
+                bestHeuristic = current.heuristic;
+                
+                // Log when we find a better state
+                if (statesExplored % 1000 == 0) {
+                    System.out.println("AI Solver: Found better state with heuristic: " + bestHeuristic);
+                }
+            }
             
             // Progress reporting
             if (statesExplored % REPORT_INTERVAL == 0) {
@@ -272,8 +289,8 @@ public class AISolver {
                     continue;
                 }
                 
-                // Add to open set if not already there
-                if (!containsBoard(openSet, next.board)) {
+                // Add to open set if not already there - using hash-based check for efficiency
+                if (!closedSet.contains(nextBoardStr)) {
                     openSet.add(next);
                     
                     // Track max open set size for memory usage reporting
@@ -284,8 +301,27 @@ public class AISolver {
             // Safety limit to prevent excessive runtime
             if (statesExplored > MAX_STATES) {
                 System.out.println("AI Solver: Search terminated after exploring " + MAX_STATES + " states");
+                
+                // If we've explored a reasonable number of states but haven't found a solution,
+                // use the best state we've seen so far to provide a partial solution
+                if (statesExplored >= MIN_STATES_TO_EXPLORE && bestState.moves.size() > 0) {
+                    System.out.println("AI Solver: Providing partial solution with " + bestState.moves.size() + 
+                                      " moves (best heuristic: " + bestHeuristic + ")");
+                    solution.addAll(bestState.moves);
+                    return true;
+                }
+                
                 return false;
             }
+        }
+        
+        // If we've explored a reasonable number of states but haven't found a solution,
+        // use the best state we've seen so far
+        if (statesExplored >= MIN_STATES_TO_EXPLORE && bestState.moves.size() > 0) {
+            System.out.println("AI Solver: Providing partial solution with " + bestState.moves.size() + 
+                              " moves (best heuristic: " + bestHeuristic + ")");
+            solution.addAll(bestState.moves);
+            return true;
         }
         
         System.out.println("AI Solver: No solution found after exploring " + 
@@ -398,8 +434,19 @@ public class AISolver {
         if (caoCaoRow < 0) return Integer.MAX_VALUE; // Cao Cao not found
         
         // 1. Manhattan distance from Cao Cao to goal
-        int manhattanDistance = Math.abs((caoCaoRow + 1) - goalRow) + 
-                               Math.abs((caoCaoCol + 1) - goalCol);
+        // Use center point of Cao Cao (2x2 block) to goal position
+        double caoCaoCenterRow = caoCaoRow + 0.5;
+        double caoCaoCenterCol = caoCaoCol + 0.5;
+        double goalCenterRow = goalRow - 0.5; // Goal is bottom edge position
+        double goalCenterCol = goalCol + 0.5; // Center of goal
+        
+        // Calculate Euclidean distance for more accuracy
+        double euclideanDistance = Math.sqrt(
+            Math.pow(caoCaoCenterRow - goalCenterRow, 2) + 
+            Math.pow(caoCaoCenterCol - goalCenterCol, 2)
+        );
+        
+        int distanceValue = (int)Math.round(euclideanDistance * 3);
         
         // 2. Count blocking pieces between Cao Cao and goal
         int blockingPieces = countBlockingPieces(board, caoCaoRow, caoCaoCol);
@@ -413,13 +460,47 @@ public class AISolver {
         // 5. Path complexity - difficulty of clearing path to goal
         int pathComplexity = calculatePathComplexity(board, caoCaoRow, caoCaoCol);
         
-        // Combine factors with appropriate weights
-        // The weights are adjusted to prioritize different aspects of the puzzle
-        return (manhattanDistance * 3) + 
-               (blockingPieces * 5) + 
-               (congestion * 4) + 
-               (mobilityFactor * 3) + 
-               (pathComplexity * 4);
+        // 6. Check if Cao Cao is able to move in the direction of the goal
+        int caoCaoMobilityPenalty = 0;
+        boolean canMoveSouth = caoCaoRow + 2 < board.length && 
+                              board[caoCaoRow + 2][caoCaoCol] == 0 && 
+                              board[caoCaoRow + 2][caoCaoCol + 1] == 0;
+        
+        // Apply a penalty if Cao Cao cannot move toward the goal
+        if (!canMoveSouth && caoCaoRow < goalRow) {
+            caoCaoMobilityPenalty = 5;
+        }
+        
+        // 7. Check if there is a clear path in the final column(s)
+        int clearPathBonus = 0;
+        if (caoCaoCol == goalCol) {
+            boolean pathClear = true;
+            // Check if path below Cao Cao to goal is clear
+            for (int r = caoCaoRow + 2; r <= goalRow + 1; r++) {
+                if (r < board.length) {
+                    if (board[r][caoCaoCol] != 0 || board[r][caoCaoCol + 1] != 0) {
+                        pathClear = false;
+                        break;
+                    }
+                }
+            }
+            if (pathClear) {
+                clearPathBonus = 15; // Significant bonus for clear path
+            }
+        }
+        
+        // Combine factors with improved weights
+        // Lower the weights to reduce the overall heuristic value
+        int heuristicValue = (distanceValue * 2) + 
+                           (blockingPieces * 3) + 
+                           (congestion * 2) + 
+                           (mobilityFactor * 2) + 
+                           (pathComplexity * 3) +
+                           caoCaoMobilityPenalty -
+                           clearPathBonus;
+        
+        // Ensure heuristic is never negative
+        return Math.max(0, heuristicValue);
     }
     
     /**
@@ -927,6 +1008,8 @@ public class AISolver {
      */
     private boolean canMove(int[][] board, int row, int col, int width, int height, Direction dir) {
         int dr = 0, dc = 0;
+        int pieceType = board[row][col];
+        boolean isSoldier = (pieceType == MapModel.SOLDIER);
         
         switch (dir) {
             case UP:
@@ -936,8 +1019,17 @@ public class AISolver {
                 // Check all cells above the piece
                 for (int j = 0; j < width; j++) {
                     if (col + j >= board[0].length) continue;
-                    if (board[row + dr][col + j] != 0) {
+                    
+                    int targetCell = board[row + dr][col + j];
+                    
+                    // Check if cell is occupied
+                    if (targetCell != 0) {
                         return false; // Blocked by another piece
+                    }
+                    
+                    // Special rule: Soldiers cannot move onto military camps
+                    if (isSoldier && targetCell == MapModel.MILITARY_CAMP) {
+                        return false;
                     }
                 }
                 break;
@@ -949,8 +1041,17 @@ public class AISolver {
                 // Check all cells below the piece
                 for (int j = 0; j < width; j++) {
                     if (col + j >= board[0].length) continue;
-                    if (board[row + height + dr - 1][col + j] != 0) {
+                    
+                    int targetCell = board[row + height + dr - 1][col + j];
+                    
+                    // Check if cell is occupied
+                    if (targetCell != 0) {
                         return false; // Blocked by another piece
+                    }
+                    
+                    // Special rule: Soldiers cannot move onto military camps
+                    if (isSoldier && targetCell == MapModel.MILITARY_CAMP) {
+                        return false;
                     }
                 }
                 break;
@@ -962,8 +1063,17 @@ public class AISolver {
                 // Check all cells to the left of the piece
                 for (int i = 0; i < height; i++) {
                     if (row + i >= board.length) continue;
-                    if (board[row + i][col + dc] != 0) {
+                    
+                    int targetCell = board[row + i][col + dc];
+                    
+                    // Check if cell is occupied
+                    if (targetCell != 0) {
                         return false; // Blocked by another piece
+                    }
+                    
+                    // Special rule: Soldiers cannot move onto military camps
+                    if (isSoldier && targetCell == MapModel.MILITARY_CAMP) {
+                        return false;
                     }
                 }
                 break;
@@ -975,8 +1085,17 @@ public class AISolver {
                 // Check all cells to the right of the piece
                 for (int i = 0; i < height; i++) {
                     if (row + i >= board.length) continue;
-                    if (board[row + i][col + width + dc - 1] != 0) {
+                    
+                    int targetCell = board[row + i][col + width + dc - 1];
+                    
+                    // Check if cell is occupied
+                    if (targetCell != 0) {
                         return false; // Blocked by another piece
+                    }
+                    
+                    // Special rule: Soldiers cannot move onto military camps
+                    if (isSoldier && targetCell == MapModel.MILITARY_CAMP) {
+                        return false;
                     }
                 }
                 break;

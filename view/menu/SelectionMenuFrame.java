@@ -144,12 +144,60 @@ public class SelectionMenuFrame extends JFrame {
 
     private void showGameRules() {
         JOptionPane.showMessageDialog(this,
-                "<html><h2>Klotski Puzzle Rules</h2><br>" +
-                        "<p>The goal is to move the red block (Cao Cao) to the exit at the bottom of the board.<p>" +
-                        "<p>- Select a block with mouse click<br>" +
-                        "- Move selected block using arrow keys<br>" +
-                        "- Blocks can only move if there is empty space<br>" +
-                        "- Complete the puzzle in as few moves as possible</p></html>",
+                "<html><h2 style='color:#990000;text-align:center'>Klotski Puzzle Rules</h2>" +
+                        "<hr style='border:1px solid #cccccc'>" +
+                        
+                        "<h3 style='color:#333399'>Game Objective</h3>" +
+                        "<p>Move the red block (Cao Cao) to the exit at the bottom center of the board. " +
+                        "Clear the path by sliding other blocks out of the way.</p>" +
+                        
+                        "<h3 style='color:#333399'>Basic Controls</h3>" +
+                        "<ul>" +
+                        "<li><b>Select Block:</b> Click on any block with the mouse</li>" +
+                        "<li><b>Move Block:</b> Use arrow keys to move the selected block</li>" +
+                        "<li><b>Undo:</b> Click the Undo button to reverse your last move</li>" +
+                        "<li><b>Restart:</b> Click the Restart button to reset the puzzle</li>" +
+                        "</ul>" +
+                        
+                        "<h3 style='color:#333399'>Piece Types</h3>" +
+                        "<ul>" +
+                        "<li><b style='color:red'>Cao Cao (曹操):</b> Red 2×2 block - must be moved to the exit</li>" +
+                        "<li><b style='color:#FF8C00'>Guan Yu (关羽):</b> Orange 2×1 horizontal block</li>" +
+                        "<li><b style='color:blue'>General (将军):</b> Blue 1×2 vertical block</li>" +
+                        "<li><b style='color:green'>Soldier (士兵):</b> Green 1×1 block</li>" +
+                        "<li><b style='color:#FF00FF'>Zhou Yu (周瑜):</b> Magenta 1×3 horizontal block</li>" +
+                        "<li><b style='color:#696969'>Obstacle (障碍):</b> Gray immovable block</li>" +
+                        "<li><b>Military Camp:</b> Special area that soldiers cannot step on (Master difficulty only)</li>" +
+                        "</ul>" +
+                        
+                        "<h3 style='color:#333399'>Difficulty Levels</h3>" +
+                        "<ul>" +
+                        "<li><b>Easy:</b> Standard 4×5 board with classic layout. No props available.</li>" +
+                        "<li><b>Hard:</b> 5×6 board with Cao Cao at top middle and obstacles. Props allowed.</li>" +
+                        "<li><b>Expert:</b> 6×7 board with more complex layout and obstacles. Props allowed.</li>" +
+                        "<li><b>Master:</b> 6×7 board with military camps that soldiers cannot step on. No props, enforced 5-minute time limit.</li>" +
+                        "</ul>" +
+                        
+                        "<h3 style='color:#333399'>Game Modes</h3>" +
+                        "<ul>" +
+                        "<li><b>Normal Mode:</b> Solve the puzzle with no time constraints.</li>" +
+                        "<li><b>Time Attack Mode:</b> Solve the puzzle before time runs out (3, 5, or 7 minutes).</li>" +
+                        "</ul>" +
+                        
+                        "<h3 style='color:#333399'>Props System</h3>" +
+                        "<p>Props are special items available in Hard and Expert difficulty levels:</p>" +
+                        "<ul>" +
+                        "<li><b>Hint:</b> Highlights a suggested move to help you progress.</li>" +
+                        "<li><b>Time Bonus:</b> Adds extra time in Time Attack Mode.</li>" +
+                        "<li><b>Obstacle Remover:</b> Temporarily removes an obstacle block.</li>" +
+                        "</ul>" +
+                        
+                        "<h3 style='color:#333399'>AI Solver</h3>" +
+                        "<p>The AI Solver can automatically solve the puzzle for you, but it doesn't use props - it finds a pure solution based on moves only.</p>" +
+                        
+                        "<hr style='border:1px solid #cccccc'>" +
+                        "<p style='text-align:center;font-style:italic'>Complete the puzzle in as few moves as possible to master the game!</p>" +
+                        "</html>",
                 "Game Rules",
                 JOptionPane.INFORMATION_MESSAGE);
     }
