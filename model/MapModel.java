@@ -18,7 +18,7 @@ public class MapModel {
     public static final int SOLDIER = 4;
     public static final int ZHOU_YU = 5; // 1x3 horizontal block
     public static final int BLOCKED = 9; // Immovable obstacle
-    public static final int MILITARY_CAMP = 10; // Military camp - soldiers cannot step on
+    public static final int MILITARY_CAMP = 10; // Military camp - only soldiers can step on
     
     // Difficulty level names
     public static final String[] LEVEL_NAMES = {
@@ -77,7 +77,7 @@ public class MapModel {
         {
             {0, MILITARY_CAMP, CAO_CAO, CAO_CAO, MILITARY_CAMP, 0},
             {0, 0, CAO_CAO, CAO_CAO, 0, 0},
-            {SOLDIER, BLOCKED, MILITARY_CAMP, MILITARY_CAMP, BLOCKED, SOLDIER},
+            {SOLDIER, BLOCKED, 0, 0, BLOCKED, SOLDIER},
             {GENERAL, SOLDIER, SOLDIER, SOLDIER, SOLDIER, GENERAL},
             {GENERAL, GUAN_YU, GUAN_YU, GUAN_YU, GUAN_YU, GENERAL},
             {SOLDIER, MILITARY_CAMP, 0, BLOCKED, MILITARY_CAMP, SOLDIER},

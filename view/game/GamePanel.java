@@ -24,6 +24,9 @@ public class GamePanel extends ListenerPanel {
     public BoxComponent selectedBox;
     private int horizontalPadding = 150; // Fixed padding for all methods
     private int verticalPadding = 100;   // Fixed padding for all methods
+    
+    // Special flag for obstacle selection mode - direct approach
+    private boolean obstacleSelectionMode = false;
 
     public GamePanel(MapModel model) {
         boxes = new ArrayList<>();
@@ -169,6 +172,25 @@ public class GamePanel extends ListenerPanel {
                         box.setSize(GRID_SIZE, GRID_SIZE);
                         box.setMovable(false);
                         break;
+                    case -MapModel.BLOCKED: // Temporarily removed obstacle (lighter color)
+                        box = new BoxComponent(new Color(200, 200, 200), i, j); // Light gray color
+                        box.setSize(GRID_SIZE, GRID_SIZE);
+                        // Allow this to be movable (it's a temporarily removed obstacle)
+                        box.setMovable(true);
+                        break;
+                    case MapModel.MILITARY_CAMP: // Military camp - only soldiers can step on
+                        box = new BoxComponent(new Color(139, 69, 19), i, j); // Brown color for military camp
+                        box.setSize(GRID_SIZE, GRID_SIZE);
+                        box.setMovable(false); // Military camps are immovable
+                        // Add Chinese character text display for military camp
+                        JLabel campLabel = new JLabel("军营");
+                        campLabel.setForeground(Color.WHITE);
+                        campLabel.setFont(new Font("SimSun", Font.BOLD, GRID_SIZE / 3));
+                        campLabel.setHorizontalAlignment(JLabel.CENTER);
+                        campLabel.setBounds(0, 0, GRID_SIZE, GRID_SIZE);
+                        box.setLayout(new BorderLayout());
+                        box.add(campLabel, BorderLayout.CENTER);
+                        break;
                 }
                 
                 if (box != null) {
@@ -240,18 +262,170 @@ public class GamePanel extends ListenerPanel {
     @Override
     public void doMouseClick(Point point) {
         Component component = this.getComponentAt(point);
+        System.out.println("GamePanel: Mouse click detected at " + point);
+        System.out.println("GamePanel: Component at click point: " + (component == null ? "null" : component.getClass().getSimpleName()));
+        
         if (component instanceof BoxComponent clickedComponent) {
-            if (selectedBox == null) {
-                selectedBox = clickedComponent;
-                selectedBox.setSelected(true);
-            } else if (selectedBox != clickedComponent) {
-                selectedBox.setSelected(false);
-                clickedComponent.setSelected(true);
-                selectedBox = clickedComponent;
-            } else {
-                clickedComponent.setSelected(false);
-                selectedBox = null;
+            // Get the game frame reference (parent container)
+            view.game.GameFrame gameFrame = null;
+            if (this.getParent() != null && this.getParent().getParent() instanceof view.game.GameFrame) {
+                gameFrame = (view.game.GameFrame) this.getParent().getParent();
             }
+            
+            // Check if we're in obstacle selection mode - new approach
+            if (obstacleSelectionMode) {
+                System.out.println("GamePanel: In obstacle selection mode, handling click");
+                handleObstacleSelection(clickedComponent);
+                return; // Exit after handling obstacle selection
+            }
+            
+            // Check if we're in obstacle remover mode via PropPanel
+            if (controller != null && gameFrame != null && gameFrame.propPanel != null) {
+                boolean obstacleRemoverActive = gameFrame.propPanel.isObstacleRemoverActive();
+                if (obstacleRemoverActive) {
+                    handleObstacleRemover(clickedComponent, gameFrame);
+                    return; // Exit after handling obstacle remover interaction
+                }
+            }
+            
+            // Normal piece selection flow
+            handleNormalPieceSelection(clickedComponent);
+        }
+    }
+    
+    /**
+     * Handles obstacle selection in direct selection mode
+     * 
+     * @param clickedComponent The component that was clicked
+     */
+    private void handleObstacleSelection(BoxComponent clickedComponent) {
+        int row = clickedComponent.getRow();
+        int col = clickedComponent.getCol();
+        
+        // Get piece type directly from model using row and col position
+        int pieceType = controller.getModel().getId(row, col);
+        
+        // Log information for debugging
+        System.out.println("GamePanel: Obstacle Selection active. Checking piece at [" + row + "," + col + "]");
+        System.out.println("GamePanel: Piece type from model: " + pieceType + 
+                         " (BLOCKED=" + MapModel.BLOCKED + ")");
+        
+        // Check if this is a blocked piece
+        if (pieceType == MapModel.BLOCKED) {
+            // This is indeed a blocked piece - try to remove it
+            System.out.println("GamePanel: Confirmed obstacle at [" + row + "," + col + "] - Removing it");
+            
+            // Call the controller to handle obstacle removal
+            boolean success = controller.useObstacleRemoverProp(row, col);
+            System.out.println("GamePanel: Obstacle removal result: " + success);
+            
+            if (success) {
+                // Reset obstacle selection mode
+                setObstacleSelectionMode(false);
+                
+                // Update the board to reflect the removal
+                System.out.println("GamePanel: Updating board after obstacle removal");
+                resetBoard(controller.getModel().getMatrix());
+                
+                // Show success message
+                JOptionPane.showMessageDialog(this, 
+                    "Obstacle successfully removed!",
+                    "Obstacle Removed", 
+                    JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                System.out.println("GamePanel: Failed to remove obstacle");
+                
+                // Reset obstacle selection mode even if failed
+                setObstacleSelectionMode(false);
+            }
+        } else {
+            // Not a blocked piece
+            System.out.println("GamePanel: Not an obstacle at [" + row + "," + col + "]");
+            JOptionPane.showMessageDialog(this,
+                "The obstacle remover can only be used on obstacles (gray blocks).",
+                "Obstacle Remover",
+                JOptionPane.INFORMATION_MESSAGE);
+                
+            // Reset obstacle selection mode
+            setObstacleSelectionMode(false);
+        }
+    }
+    
+    /**
+     * Handles obstacle remover functionality when a piece is clicked
+     * 
+     * @param clickedComponent The component that was clicked
+     * @param gameFrame The parent game frame
+     */
+    private void handleObstacleRemover(BoxComponent clickedComponent, view.game.GameFrame gameFrame) {
+        int row = clickedComponent.getRow();
+        int col = clickedComponent.getCol();
+        
+        // Get piece type directly from model using row and col position
+        int pieceType = controller.getModel().getId(row, col);
+        
+        // Log information for debugging
+        System.out.println("GamePanel: Obstacle Remover active. Checking piece at [" + row + "," + col + "]");
+        System.out.println("GamePanel: Piece type from model: " + pieceType + 
+                         " (BLOCKED=" + MapModel.BLOCKED + ")");
+        System.out.println("GamePanel: Component color: " + clickedComponent.getColor());
+        System.out.println("GamePanel: Component is movable: " + clickedComponent.isMovable());
+        
+        // Check if this is a blocked piece
+        if (pieceType == MapModel.BLOCKED) {
+            // This is indeed a blocked piece - try to remove it
+            System.out.println("GamePanel: Confirmed obstacle at [" + row + "," + col + "] - Removing it");
+            
+            // Call the controller to handle obstacle removal
+            boolean success = controller.useObstacleRemoverProp(row, col);
+            System.out.println("GamePanel: Obstacle removal result: " + success);
+            
+            if (success) {
+                // Reset obstacle remover mode
+                gameFrame.propPanel.resetObstacleRemoverMode();
+                
+                // Update the board to reflect the removal
+                System.out.println("GamePanel: Updating board after obstacle removal");
+                resetBoard(controller.getModel().getMatrix());
+                
+                // Force UI update
+                this.revalidate();
+                this.repaint();
+                
+                // Show success message
+                JOptionPane.showMessageDialog(this, 
+                    "Obstacle successfully removed!",
+                    "Obstacle Removed", 
+                    JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                System.out.println("GamePanel: Failed to remove obstacle");
+            }
+        } else {
+            // Not a blocked piece
+            System.out.println("GamePanel: Not an obstacle at [" + row + "," + col + "]");
+            JOptionPane.showMessageDialog(this,
+                "The obstacle remover can only be used on obstacles (gray blocks).",
+                "Obstacle Remover",
+                JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+    
+    /**
+     * Handles normal piece selection when not in obstacle remover mode
+     * 
+     * @param clickedComponent The component that was clicked
+     */
+    private void handleNormalPieceSelection(BoxComponent clickedComponent) {
+        if (selectedBox == null) {
+            selectedBox = clickedComponent;
+            selectedBox.setSelected(true);
+        } else if (selectedBox != clickedComponent) {
+            selectedBox.setSelected(false);
+            clickedComponent.setSelected(true);
+            selectedBox = clickedComponent;
+        } else {
+            clickedComponent.setSelected(false);
+            selectedBox = null;
         }
     }
 
@@ -436,10 +610,10 @@ public class GamePanel extends ListenerPanel {
         
         // Reuse existing board position variables for exit alignment
         
-        // Draw exit position centered below chessboard with tight spacing
+        // Draw exit position centered at the bottom center of the board
         int exitWidth = 2 * GRID_SIZE; // Fixed width of 2 grid cells
-        int exitX = (this.getWidth() - exitWidth) / 2; // Center in panel
-        int exitY = yOffset + boardHeight + 2; // Below board with 2px margin
+        int exitX = xOffset + (boardWidth - exitWidth) / 2; // Center horizontally on the board
+        int exitY = yOffset + boardHeight - GRID_SIZE; // Place at the bottom row of the board
         
         // Draw exit background
         if (exitHighlighted) {
@@ -472,5 +646,16 @@ public class GamePanel extends ListenerPanel {
         if (stepLabel != null) {
             stepLabel.setText(String.format("Step: %d", this.steps));
         }
+    }
+    
+    /**
+     * Sets the obstacle selection mode
+     * 
+     * @param active Whether obstacle selection mode is active
+     */
+    public void setObstacleSelectionMode(boolean active) {
+        System.out.println("GamePanel: Setting obstacle selection mode to " + active);
+        this.obstacleSelectionMode = active;
+        this.setCursor(active ? Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR) : Cursor.getDefaultCursor());
     }
 }

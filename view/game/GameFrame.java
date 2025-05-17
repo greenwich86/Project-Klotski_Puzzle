@@ -3,6 +3,7 @@ package view.game;
 import controller.GameController;
 import model.AISolver;
 import model.MapModel;
+import model.Prop;
 import view.FrameUtil;
 import view.menu.SelectionMenuFrame;
 
@@ -24,7 +25,41 @@ public class GameFrame extends JFrame {
     private JLabel timerLabel;
     private GamePanel gamePanel;
     private Timer countdownTimer;
-    private PropPanel propPanel;
+    public PropPanel propPanel;
+    
+    /**
+     * Gets the prop panel
+     * @return The prop panel
+     */
+    public PropPanel getPropPanel() {
+        return propPanel;
+    }
+    
+    /**
+     * Direct method to handle obstacle removal
+     * This method is called by PropPanel when the Obstacle Remover prop is used
+     */
+    public void handleObstacleRemoval() {
+        System.out.println("GameFrame: Starting direct obstacle removal process");
+        
+        // First check if prop is available
+        if (!controller.isPropAvailable(Prop.PropType.OBSTACLE_REMOVER)) {
+            JOptionPane.showMessageDialog(this,
+                "You don't have any obstacle remover props available.",
+                "Obstacle Remover",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        // Show message to prompt user to select an obstacle
+        JOptionPane.showMessageDialog(this,
+            "Click on an obstacle (gray block) to remove it temporarily.",
+            "Select Obstacle",
+            JOptionPane.INFORMATION_MESSAGE);
+            
+        // Set game panel into obstacle selection mode
+        gamePanel.setObstacleSelectionMode(true);
+    }
 
     public GameFrame(int width, int height, MapModel mapModel) {
         this(width, height, mapModel, null);
@@ -69,10 +104,14 @@ public class GameFrame extends JFrame {
         ));
         propPanel.setBackground(new Color(230, 230, 255));
         propPanel.setOpaque(true);
-        propPanel.setVisible(MapModel.LEVEL_PROPS_ALLOWED[controller.getCurrentLevel()]);
+        // Always make the prop panel visible, but update its appearance based on current level
+        propPanel.setVisible(true);
         // Set minimum size to ensure visibility
         propPanel.setMinimumSize(new Dimension(200, 180));
         propPanel.setPreferredSize(new Dimension(220, 200));
+        
+        // Make sure props are properly initialized based on current level
+        updatePropPanelVisibility(controller.getCurrentLevel());
         
         // Step counter and timer
         JPanel statsPanel = new JPanel();
@@ -311,7 +350,13 @@ public class GameFrame extends JFrame {
     public void updatePropPanelVisibility(int level) {
         if (propPanel != null) {
             boolean propsAllowed = MapModel.LEVEL_PROPS_ALLOWED[level];
-            propPanel.setVisible(true); // Always show prop panel for UI consistency
+            
+            System.out.println("Updating prop panel for level " + level + 
+                             " (name: " + MapModel.LEVEL_NAMES[level] + 
+                             ", props allowed: " + propsAllowed + ")");
+            
+            // Always make the panel visible regardless of level
+            propPanel.setVisible(true);
             
             if (!propsAllowed) {
                 // For levels with no props, display information but keep panel visible
@@ -338,14 +383,24 @@ public class GameFrame extends JFrame {
                 
                 // Reinitialize controller's props to ensure they're properly set up
                 controller.initializeProps(level);
+                
+                // Log prop counts for debugging
+                System.out.println("Level " + level + " prop counts: " +
+                                 "Hint: " + controller.getPropCount(Prop.PropType.HINT) + ", " +
+                                 "Time Bonus: " + controller.getPropCount(Prop.PropType.TIME_BONUS) + ", " +
+                                 "Obstacle Remover: " + controller.getPropCount(Prop.PropType.OBSTACLE_REMOVER));
             }
             
             // Always update prop availability regardless of level
             propPanel.updatePropAvailability();
             
-            // Force repaint and revalidation
+            // Force repaint, revalidation, and ensure parent container updates
             propPanel.revalidate();
             propPanel.repaint();
+            this.revalidate();
+            this.repaint();
+        } else {
+            System.out.println("Warning: PropPanel is null when trying to update visibility for level " + level);
         }
     }
     
@@ -369,13 +424,57 @@ public class GameFrame extends JFrame {
         // Update the timer display
         updateTimerDisplay(currentTimeLeft);
         
-        // Show notification
-        JOptionPane.showMessageDialog(this,
-            "Time Bonus: " + secondsToAdd + " seconds added!",
-            "Time Bonus",
-            JOptionPane.INFORMATION_MESSAGE);
+        // Temporarily highlight the timer to show it was updated
+        highlightTimerUpdate();
         
         return true;
+    }
+    
+    /**
+     * Highlights the timer label to show it was updated
+     */
+    private void highlightTimerUpdate() {
+        // Store original colors
+        final Color originalFg = timerLabel.getForeground();
+        final Color originalBg = timerLabel.getBackground();
+        final boolean wasOpaque = timerLabel.isOpaque();
+        
+        // Create a flash animation
+        Timer flashTimer = new Timer(150, new ActionListener() {
+            private int count = 0;
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (count % 2 == 0) {
+                    // Highlight phase
+                    timerLabel.setForeground(Color.WHITE);
+                    timerLabel.setBackground(new Color(0, 150, 0));
+                    timerLabel.setOpaque(true);
+                } else {
+                    // Normal phase
+                    timerLabel.setForeground(originalFg);
+                    timerLabel.setBackground(originalBg);
+                    timerLabel.setOpaque(wasOpaque);
+                }
+                
+                timerLabel.repaint();
+                count++;
+                
+                // Stop after 4 flashes (2 cycles)
+                if (count >= 4) {
+                    ((Timer)e.getSource()).stop();
+                    
+                    // Restore original state
+                    timerLabel.setForeground(originalFg);
+                    timerLabel.setBackground(originalBg);
+                    timerLabel.setOpaque(wasOpaque);
+                    timerLabel.repaint();
+                }
+            }
+        });
+        
+        flashTimer.setRepeats(true);
+        flashTimer.start();
     }
 
     /**
@@ -397,26 +496,26 @@ public class GameFrame extends JFrame {
             // Show timer label
             timerLabel.setVisible(true);
             
-            // Convert minutes to seconds
-            final int[] secondsLeft = { minutes * 60 };
+            // Convert minutes to seconds and store in the field for consistent use
+            currentTimeLeft = minutes * 60;
             
             // Format and display initial time
-            updateTimerDisplay(secondsLeft[0]);
+            updateTimerDisplay(currentTimeLeft);
             
-            // Create and start countdown timer
+            // Create and start countdown timer using the field instead of local variable
             countdownTimer = new Timer(1000, e -> {
-                secondsLeft[0]--;
-                updateTimerDisplay(secondsLeft[0]);
+                currentTimeLeft--;
+                updateTimerDisplay(currentTimeLeft);
                 
                 // Change color when time is running low
-                if (secondsLeft[0] <= 60) {
+                if (currentTimeLeft <= 60) {
                     timerLabel.setForeground(Color.RED);
                 } else {
                     timerLabel.setForeground(Color.BLACK);
                 }
                 
                 // Game over when time runs out
-                if (secondsLeft[0] <= 0) {
+                if (currentTimeLeft <= 0) {
                     ((Timer)e.getSource()).stop();
                     timeAttackGameOver();
                 }

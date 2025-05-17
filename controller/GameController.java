@@ -68,13 +68,30 @@ public class GameController {
         view.resetBoard(model.getMatrix());
         view.updateMoveCount(0);
         
-        // Initialize props based on difficulty level
+        // Add debug logging to help trace prop initialization
+        System.out.println("GameController: Setting level to " + level + 
+                         " (" + MapModel.LEVEL_NAMES[level] + ")");
+        System.out.println("Props allowed for this level: " + MapModel.LEVEL_PROPS_ALLOWED[level]);
+        
+        // Always initialize props, even if they're not allowed for this level
+        // This ensures consistent behavior across all levels
         initializeProps(level);
         
-        // Update prop panel visibility in GameFrame if possible
+        // Find the GameFrame and update the prop panel
+        view.game.GameFrame gameFrame = null;
         if (view.getParent() != null && view.getParent().getParent() instanceof view.game.GameFrame) {
-            view.game.GameFrame gameFrame = (view.game.GameFrame) view.getParent().getParent();
+            gameFrame = (view.game.GameFrame) view.getParent().getParent();
+            
+            // Force update of prop panel visibility and contents
             gameFrame.updatePropPanelVisibility(level);
+            
+            // Log prop availability after initialization
+            System.out.println("After initialization - Prop counts: " + 
+                             "Hint: " + getPropCount(Prop.PropType.HINT) + ", " +
+                             "Time Bonus: " + getPropCount(Prop.PropType.TIME_BONUS) + ", " +
+                             "Obstacle Remover: " + getPropCount(Prop.PropType.OBSTACLE_REMOVER));
+        } else {
+            System.out.println("Warning: Could not find GameFrame to update prop panel");
         }
         
         view.requestFocusInWindow();
@@ -147,13 +164,24 @@ public class GameController {
         view.resetBoard(model.getMatrix());
         view.updateMoveCount(0);
         
-        // Initialize props based on difficulty level
+        // Always initialize props for the level, regardless of whether props are allowed
+        // This ensures prop counts are properly set for all difficulty levels
         initializeProps(level);
         
-        // Update prop panel visibility in GameFrame if possible
+        // Ensure prop panel is visible and properly initialized in GameFrame
         if (view.getParent() != null && view.getParent().getParent() instanceof view.game.GameFrame) {
             view.game.GameFrame gameFrame = (view.game.GameFrame) view.getParent().getParent();
+            
+            // Force update of prop panel visibility and contents
             gameFrame.updatePropPanelVisibility(level);
+            
+            // Log prop panel status for debugging
+            System.out.println("GameController: Updated prop panel for level " + level + 
+                             " (" + MapModel.LEVEL_NAMES[level] + ")");
+            System.out.println("Prop availability: " + 
+                             "Hint: " + getPropCount(Prop.PropType.HINT) + ", " +
+                             "Time Bonus: " + getPropCount(Prop.PropType.TIME_BONUS) + ", " +
+                             "Obstacle Remover: " + getPropCount(Prop.PropType.OBSTACLE_REMOVER));
         }
         
         view.requestFocusInWindow();
@@ -189,45 +217,96 @@ public class GameController {
         if (direction == Direction.LEFT && col == 0) return false;
         if (direction == Direction.RIGHT && col + width >= model.getWidth()) return false;
 
+        // Debug info for military camps
+        System.out.println("canMove check: blockType=" + blockType + ", direction=" + direction);
+        
         // Check all cells in movement direction
         if (direction == Direction.UP) {
             for (int c = col; c < col + width; c++) {
                 int targetCell = model.getId(row - 1, c);
-                if (targetCell > 0) return false;
+                System.out.println("  Checking UP at [" + (row-1) + "," + c + "] = " + targetCell);
                 
-                // Check if soldier is trying to step on military camp in Master level
-                if (blockType == MapModel.SOLDIER && 
-                    targetCell == MapModel.MILITARY_CAMP) return false;
+                // Only block movement if target cell is occupied by another piece
+                if (targetCell > 0 && targetCell < MapModel.BLOCKED) return false;
+                
+                // Only block movement for BLOCKED cells (always immovable)
+                if (targetCell == MapModel.BLOCKED) return false;
+                
+                // Military camps: allow soldiers to move onto them, block others
+                if (targetCell == MapModel.MILITARY_CAMP) {
+                    if (blockType == MapModel.SOLDIER) {
+                        System.out.println("  Allowing soldier to move onto military camp");
+                    } else {
+                        System.out.println("  Blocking non-soldier from moving onto military camp");
+                        return false;
+                    }
+                }
             }
         }
         else if (direction == Direction.DOWN) {
             for (int c = col; c < col + width; c++) {
                 int targetCell = model.getId(row + height, c);
-                if (targetCell > 0) return false;
+                System.out.println("  Checking DOWN at [" + (row+height) + "," + c + "] = " + targetCell);
                 
-                // Check if soldier is trying to step on military camp in Master level
-                if (blockType == MapModel.SOLDIER && 
-                    targetCell == MapModel.MILITARY_CAMP) return false;
+                // Only block movement if target cell is occupied by another piece
+                if (targetCell > 0 && targetCell < MapModel.BLOCKED) return false;
+                
+                // Only block movement for BLOCKED cells (always immovable)
+                if (targetCell == MapModel.BLOCKED) return false;
+                
+                // Military camps: allow soldiers to move onto them, block others
+                if (targetCell == MapModel.MILITARY_CAMP) {
+                    if (blockType == MapModel.SOLDIER) {
+                        System.out.println("  Allowing soldier to move onto military camp");
+                    } else {
+                        System.out.println("  Blocking non-soldier from moving onto military camp");
+                        return false;
+                    }
+                }
             }
         }
         else if (direction == Direction.LEFT) {
             for (int r = row; r < row + height; r++) {
                 int targetCell = model.getId(r, col - 1);
-                if (targetCell > 0) return false;
+                System.out.println("  Checking LEFT at [" + r + "," + (col-1) + "] = " + targetCell);
                 
-                // Check if soldier is trying to step on military camp in Master level
-                if (blockType == MapModel.SOLDIER && 
-                    targetCell == MapModel.MILITARY_CAMP) return false;
+                // Only block movement if target cell is occupied by another piece
+                if (targetCell > 0 && targetCell < MapModel.BLOCKED) return false;
+                
+                // Only block movement for BLOCKED cells (always immovable)
+                if (targetCell == MapModel.BLOCKED) return false;
+                
+                // Military camps: allow soldiers to move onto them, block others
+                if (targetCell == MapModel.MILITARY_CAMP) {
+                    if (blockType == MapModel.SOLDIER) {
+                        System.out.println("  Allowing soldier to move onto military camp");
+                    } else {
+                        System.out.println("  Blocking non-soldier from moving onto military camp");
+                        return false;
+                    }
+                }
             }
         }
         else if (direction == Direction.RIGHT) {
             for (int r = row; r < row + height; r++) {
                 int targetCell = model.getId(r, col + width);
-                if (targetCell > 0) return false;
+                System.out.println("  Checking RIGHT at [" + r + "," + (col+width) + "] = " + targetCell);
                 
-                // Check if soldier is trying to step on military camp in Master level
-                if (blockType == MapModel.SOLDIER && 
-                    targetCell == MapModel.MILITARY_CAMP) return false;
+                // Only block movement if target cell is occupied by another piece
+                if (targetCell > 0 && targetCell < MapModel.BLOCKED) return false;
+                
+                // Only block movement for BLOCKED cells (always immovable)
+                if (targetCell == MapModel.BLOCKED) return false;
+                
+                // Military camps: allow soldiers to move onto them, block others
+                if (targetCell == MapModel.MILITARY_CAMP) {
+                    if (blockType == MapModel.SOLDIER) {
+                        System.out.println("  Allowing soldier to move onto military camp");
+                    } else {
+                        System.out.println("  Blocking non-soldier from moving onto military camp");
+                        return false;
+                    }
+                }
             }
         }
 
@@ -256,7 +335,7 @@ public class GameController {
         } else if (blockType == MapModel.ZHOU_YU) { // 1x3 block
             width = 3;
             height = 1;
-        } else if (blockType == MapModel.BLOCKED) { // Immovable
+        } else if (blockType == MapModel.BLOCKED || blockType == MapModel.MILITARY_CAMP) { // Immovable pieces
             return false;
         }
 
@@ -461,13 +540,31 @@ public class GameController {
         }
     }
     
+    // Track military camp positions to preserve them
+    private List<int[]> militaryCampPositions = new ArrayList<>();
+    
     /**
      * Clear positions for the block being moved
      */
     private void clearOldPositions(int row, int col, int width, int height) {
+        // Clear military camp positions from previous move
+        militaryCampPositions.clear();
+        
         for (int r = row; r < row + height; r++) {
             for (int c = col; c < col + width; c++) {
                 if (r < model.getHeight() && c < model.getWidth()) {
+                    // Check if this position originally had a military camp
+                    // This is crucial for Master level where military camps should remain
+                    if (currentLevel == 3) { // Master level
+                        // Check level 3 model if this position should be a military camp
+                        int originalCell = MapModel.LEVELS[3][r][c];
+                        if (originalCell == MapModel.MILITARY_CAMP) {
+                            System.out.println("Preserving military camp at [" + r + "," + c + "]");
+                            militaryCampPositions.add(new int[]{r, c});
+                        }
+                    }
+                    
+                    // Clear the cell
                     model.getMatrix()[r][c] = 0;
                 }
             }
@@ -478,17 +575,86 @@ public class GameController {
      * Set new positions for the block after movement
      */
     private void setNewPositions(int nextRow, int nextCol, int width, int height, int blockType) {
+        // Extra logging for debugging military camp movement
+        if (blockType == MapModel.SOLDIER) {
+            System.out.println("GameController: Moving a soldier to [" + nextRow + "," + nextCol + "]");
+        }
+        
+        // Store military camp positions that will be covered by the moved piece
+        List<int[]> coveredMilitaryCamps = new ArrayList<>();
+        
+        // First check if we're moving onto any military camps
         for (int r = 0; r < height; r++) {
             for (int c = 0; c < width; c++) {
-                if (nextRow + r < model.getHeight() && nextCol + c < model.getWidth()) {
-                    model.getMatrix()[nextRow + r][nextCol + c] = blockType;
+                int targetRow = nextRow + r;
+                int targetCol = nextCol + c;
+                
+                if (targetRow < model.getHeight() && targetCol < model.getWidth()) {
+                    // Check if target position is a military camp
+                    if (model.getMatrix()[targetRow][targetCol] == MapModel.MILITARY_CAMP) {
+                        // Only soldiers can step on military camps
+                        if (blockType == MapModel.SOLDIER) {
+                            System.out.println("GameController: Soldier will cover military camp at [" + 
+                                             targetRow + "," + targetCol + "]");
+                            coveredMilitaryCamps.add(new int[]{targetRow, targetCol});
+                        }
+                    }
                 }
+            }
+        }
+        
+        // Now update positions with the moved piece
+        for (int r = 0; r < height; r++) {
+            for (int c = 0; c < width; c++) {
+                int targetRow = nextRow + r;
+                int targetCol = nextCol + c;
+                
+                if (targetRow < model.getHeight() && targetCol < model.getWidth()) {
+                    // Special handling for soldiers moving onto military camps
+                    boolean isMilitaryCampPosition = false;
+                    
+                    // Check if this position is a covered military camp
+                    for (int[] campPos : coveredMilitaryCamps) {
+                        if (campPos[0] == targetRow && campPos[1] == targetCol) {
+                            isMilitaryCampPosition = true;
+                            break;
+                        }
+                    }
+                    
+                    // For soldiers stepping on military camps, we still want to 
+                    // update the model to show the soldier (not the camp)
+                    model.getMatrix()[targetRow][targetCol] = blockType;
+                }
+            }
+        }
+        
+        // Restore military camps that were saved during clearOldPositions
+        // This ensures military camps are preserved when pieces move off them
+        for (int[] campPos : militaryCampPositions) {
+            int row = campPos[0];
+            int col = campPos[1];
+            
+            // Only restore if the position is now empty (not occupied by the moved piece)
+            boolean isOccupiedByMovedPiece = false;
+            for (int r = 0; r < height; r++) {
+                for (int c = 0; c < width; c++) {
+                    if (nextRow + r == row && nextCol + c == col) {
+                        isOccupiedByMovedPiece = true;
+                        break;
+                    }
+                }
+                if (isOccupiedByMovedPiece) break;
+            }
+            
+            if (!isOccupiedByMovedPiece) {
+                System.out.println("GameController: Restoring military camp at [" + row + "," + col + "]");
+                model.getMatrix()[row][col] = MapModel.MILITARY_CAMP;
             }
         }
     }
     
     /**
-     * Use the hint prop to show the next best move
+     * Use the hint prop to show the next best 3 moves
      */
     public boolean useHintProp() {
         if (!isPropAvailable(Prop.PropType.HINT)) {
@@ -498,17 +664,41 @@ public class GameController {
         // Use AI solver to find the best move
         model.AISolver solver = new model.AISolver(this.model, this);
         if (solver.findSolution()) {
-            // Get the first move from the solution if available
+            // Get moves from the solution if available
             if (solver.getSolutionLength() > 0) {
-                // We can access the Move directly from the solver's execute method
-                // Show a hint dialog with the suggested move
+                // Get up to 3 steps from the solution
+                int stepsToShow = Math.min(3, solver.getSolutionLength());
+                StringBuilder hintMessage = new StringBuilder();
+                hintMessage.append("<html><b>Hint:</b> Here are the next ").append(stepsToShow).append(" moves:<br><br>");
+                
+                // Get the solution moves
+                List<model.AISolver.Move> solutionMoves = solver.getSolutionMoves(stepsToShow);
+                
+                // Build step-by-step hints
+                for (int i = 0; i < solutionMoves.size(); i++) {
+                    model.AISolver.Move move = solutionMoves.get(i);
+                    int pieceType = model.getId(move.row, move.col);
+                    String pieceName = getPieceNameByType(pieceType);
+                    
+                    hintMessage.append("<b>Step ").append(i+1).append(":</b> Move the ");
+                    hintMessage.append(pieceName).append(" piece at position [").append(move.row + 1).append(", ").append(move.col + 1);
+                    hintMessage.append("] ").append(getDirectionText(move.direction)).append("<br>");
+                }
+                
+                hintMessage.append("</html>");
+                
+                // Show the hint dialog with the multi-step suggestions
                 JOptionPane.showMessageDialog(view,
-                    "Hint: Found a solution path with " + solver.getSolutionLength() + " moves!",
-                    "Hint",
+                    hintMessage.toString(),
+                    "Hint - Next " + stepsToShow + " Moves",
                     JOptionPane.INFORMATION_MESSAGE);
                 
                 // Flash the piece that should be moved next to highlight it
-                highlightNextMove(view.getSelectedBox());
+                // Find the box component for the first move
+                BoxComponent pieceToMove = findBoxAtPosition(solutionMoves.get(0).row, solutionMoves.get(0).col);
+                if (pieceToMove != null) {
+                    highlightNextMove(pieceToMove);
+                }
                 
                 // Consume the prop
                 Prop hintProp = availableProps.get(Prop.PropType.HINT);
@@ -517,7 +707,7 @@ public class GameController {
                 return true;
             }
             
-            // Fallback message
+            // Fallback message if solution found but no moves available (shouldn't happen)
             JOptionPane.showMessageDialog(view,
                 "Hint: Try moving a piece toward the exit!",
                 "Hint",
@@ -534,6 +724,90 @@ public class GameController {
                 "Hint",
                 JOptionPane.ERROR_MESSAGE);
             return false;
+        }
+    }
+    
+    /**
+     * Find a box component at a specific position
+     */
+    private BoxComponent findBoxAtPosition(int row, int col) {
+        for (BoxComponent box : view.getBoxes()) {
+            int pieceType = model.getId(row, col);
+            // For multi-cell pieces, we need to find the top-left corner
+            int originRow = row;
+            int originCol = col;
+            
+            // Check for multi-cell pieces
+            if (pieceType == MapModel.CAO_CAO) { // 2x2
+                if (row > 0 && col > 0 && model.getId(row-1, col-1) == pieceType) {
+                    originRow = row-1;
+                    originCol = col-1;
+                } else if (row > 0 && model.getId(row-1, col) == pieceType) {
+                    originRow = row-1;
+                } else if (col > 0 && model.getId(row, col-1) == pieceType) {
+                    originCol = col-1;
+                }
+            } else if (pieceType == MapModel.GUAN_YU) { // 2x1
+                if (col > 0 && model.getId(row, col-1) == pieceType) {
+                    originCol = col-1;
+                }
+            } else if (pieceType == MapModel.GENERAL) { // 1x2
+                if (row > 0 && model.getId(row-1, col) == pieceType) {
+                    originRow = row-1;
+                }
+            } else if (pieceType == MapModel.ZHOU_YU) { // 1x3
+                if (col > 0 && model.getId(row, col-1) == pieceType) {
+                    originCol = col-1;
+                    if (col > 1 && model.getId(row, col-2) == pieceType) {
+                        originCol = col-2;
+                    }
+                }
+            }
+            
+            if (box.getRow() == originRow && box.getCol() == originCol) {
+                return box;
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Get a human-readable name for a piece type
+     */
+    private String getPieceNameByType(int pieceType) {
+        switch (pieceType) {
+            case MapModel.CAO_CAO:
+                return "Cao Cao (2x2 red)";
+            case MapModel.GUAN_YU:
+                return "Guan Yu (2x1 horizontal orange)";
+            case MapModel.GENERAL:
+                return "General (1x2 vertical blue)";
+            case MapModel.SOLDIER:
+                return "Soldier (1x1 green)";
+            case MapModel.ZHOU_YU:
+                return "Zhou Yu (1x3 horizontal purple)";
+            case MapModel.BLOCKED:
+                return "Obstacle (gray)";
+            default:
+                return "Unknown";
+        }
+    }
+    
+    /**
+     * Get a human-readable description of a direction
+     */
+    private String getDirectionText(Direction dir) {
+        switch (dir) {
+            case UP:
+                return "upward";
+            case DOWN:
+                return "downward";
+            case LEFT:
+                return "to the left";
+            case RIGHT:
+                return "to the right";
+            default:
+                return "in some direction";
         }
     }
     
@@ -622,39 +896,51 @@ public class GameController {
      * @return true if successful, false if the prop is not available or the target is not a removable obstacle
      */
     public boolean useObstacleRemoverProp(int row, int col) {
-        if (!isPropAvailable(Prop.PropType.OBSTACLE_REMOVER)) {
-            return false;
-        }
+        System.out.println("GameController: Attempting to remove obstacle at [" + row + "," + col + "]");
         
-        // Check if the target is a removable obstacle
-        if (model.getId(row, col) != MapModel.BLOCKED) {
+        // Check if the prop is available
+        if (!isPropAvailable(Prop.PropType.OBSTACLE_REMOVER)) {
+            System.out.println("GameController: Obstacle remover prop not available");
             JOptionPane.showMessageDialog(view,
-                "This prop can only be used on obstacles.",
+                "You don't have any obstacle remover props available.",
                 "Obstacle Remover",
                 JOptionPane.WARNING_MESSAGE);
             return false;
         }
         
+        // Get the cell type directly from the model
+        int cellType = model.getId(row, col);
+        System.out.println("GameController: Cell type at [" + row + "," + col + "]: " + cellType);
+        
+        // Check if the target is a removable obstacle
+        if (cellType != MapModel.BLOCKED) {
+            System.out.println("GameController: Target is not a removable obstacle (type=" + cellType + 
+                             ", expected=" + MapModel.BLOCKED + ")");
+            JOptionPane.showMessageDialog(view,
+                "This prop can only be used on obstacles (gray blocks).",
+                "Obstacle Remover",
+                JOptionPane.WARNING_MESSAGE);
+            return false;
+        }
+        
+        // Debug helper
+        System.out.println("GameController: Confirmed obstacle at [" + row + "," + col + "]");
+        
         // Determine how many steps the obstacle will be removed for
-        int stepsRemoved = (currentLevel == 1) ? 3 : 2; // Hard level: 3 steps, Expert level: 2 steps
+        int stepsRemoved = 3; // Always 3 steps for consistency
         
         // Store the obstacle information for restoration
         removedObstacles.add(new int[] {row, col, stepsRemoved});
         
-        // Remove the obstacle
-        model.getMatrix()[row][col] = 0;
-        
-        // Update the view
-        view.resetBoard(model.getMatrix());
+        // Mark the obstacle as temporarily removed using negative value
+        model.getMatrix()[row][col] = -MapModel.BLOCKED;
         
         // Consume the prop
         Prop obstacleProp = availableProps.get(Prop.PropType.OBSTACLE_REMOVER);
         obstacleProp.use();
         
-        JOptionPane.showMessageDialog(view,
-            "Obstacle removed temporarily! It will reappear after " + stepsRemoved + " moves.",
-            "Obstacle Remover",
-            JOptionPane.INFORMATION_MESSAGE);
+        System.out.println("GameController: Obstacle successfully removed for " + stepsRemoved + " steps");
+        System.out.println("GameController: removedObstacles list now has " + removedObstacles.size() + " items");
         
         return true;
     }
@@ -668,6 +954,7 @@ public class GameController {
         }
         
         ArrayList<int[]> obstaclesRestored = new ArrayList<>();
+        boolean viewNeedsUpdate = false;
         
         // Decrement step counters and restore obstacles that have reached zero
         for (int[] obstacle : removedObstacles) {
@@ -675,19 +962,59 @@ public class GameController {
             int col = obstacle[1];
             int stepsLeft = obstacle[2] - 1;
             
+            // Special case: stepsLeft is negative, which means this obstacle is waiting for its position to become clear
+            boolean waitingToRestore = stepsLeft < 0;
+            
+            if (waitingToRestore) {
+                // This obstacle is just waiting for its position to be clear, don't decrement further
+                stepsLeft = obstacle[2]; // Keep the negative value
+            }
+            
+            System.out.println("Checking obstacle at [" + row + "," + col + "] - Steps left: " + stepsLeft + 
+                             (waitingToRestore ? " (waiting for position to clear)" : ""));
+            
             if (stepsLeft <= 0) {
-                // Restore the obstacle
-                model.getMatrix()[row][col] = MapModel.BLOCKED;
-                obstaclesRestored.add(obstacle);
+                // Check if the position is currently occupied by a piece
+                int cellValue = model.getId(row, col);
+                System.out.println("  Position content: " + cellValue);
                 
-                // Notify the user
-                JOptionPane.showMessageDialog(view,
-                    "An obstacle has reappeared!",
-                    "Obstacle Restored",
-                    JOptionPane.INFORMATION_MESSAGE);
+                if (cellValue == 0) {
+                    // Position is empty, restore the obstacle
+                    model.getMatrix()[row][col] = MapModel.BLOCKED;
+                    obstaclesRestored.add(obstacle);
+                    viewNeedsUpdate = true;
+                    
+                    // Notify the user
+                    JOptionPane.showMessageDialog(view,
+                        "An obstacle has reappeared at position [" + (row+1) + "," + (col+1) + "]!",
+                        "Obstacle Restored",
+                        JOptionPane.INFORMATION_MESSAGE);
+                    
+                    System.out.println("  Obstacle at [" + row + "," + col + "] has been restored");
+                } else {
+                    // Position is occupied, keep the obstacle in the list but mark it as waiting to restore
+                    System.out.println("  Cannot restore obstacle at [" + row + "," + col + "] because position is occupied");
+                    System.out.println("  Will restore when position becomes clear");
+                    
+                    // Set stepsLeft to a special negative value to indicate waiting status
+                    if (stepsLeft == 0) {
+                        obstacle[2] = -1; // -1 means waiting for position to clear
+                    }
+                    
+                    // Show a warning message to the player if this is the first time we're waiting
+                    if (!waitingToRestore) {
+                        JOptionPane.showMessageDialog(view,
+                            "An obstacle is trying to reappear at position [" + (row+1) + "," + (col+1) + "],\n" +
+                            "but the position is currently occupied.\n" +
+                            "The obstacle will reappear when the position becomes clear.",
+                            "Obstacle Waiting",
+                            JOptionPane.WARNING_MESSAGE);
+                    }
+                }
             } else {
                 // Update the steps counter
                 obstacle[2] = stepsLeft;
+                System.out.println("  Obstacle at [" + row + "," + col + "] will reappear in " + stepsLeft + " moves");
             }
         }
         
@@ -695,7 +1022,7 @@ public class GameController {
         removedObstacles.removeAll(obstaclesRestored);
         
         // Update the view if any obstacles were restored
-        if (!obstaclesRestored.isEmpty()) {
+        if (viewNeedsUpdate) {
             view.resetBoard(model.getMatrix());
         }
     }
@@ -729,11 +1056,15 @@ public class GameController {
                 }
             }
 
-            // Victory occurs when CaoCao covers exit position (rows 3-4, columns 1-2)
-            boolean coversExitPosition = (nextRow == 3 && nextCol == 1);
+            // Get the goal position based on board dimensions
+            int goalRow = model.getHeight() - 2;
+            int goalCol = (model.getWidth() / 2) - 1;
+            
+            // Victory occurs when CaoCao covers exit position at the bottom center
+            boolean coversExitPosition = (nextRow == goalRow && nextCol == goalCol);
 
-            // Victory condition - CaoCao must cover exit position (row 3, col 1)
-            if (blockType == MapModel.CAO_CAO && nextRow == 3 && nextCol == 1) {
+            // Victory condition - CaoCao must cover exit position at the bottom center
+            if (blockType == MapModel.CAO_CAO && nextRow == goalRow && nextCol == goalCol) {
                 // Additional check that all 4 CaoCao positions are valid
                 boolean allPositionsValid = true;
                 for (int r = nextRow; r < nextRow + 2; r++) {
@@ -857,10 +1188,74 @@ public class GameController {
      * @param col Column position on the board
      * @return The selected BoxComponent, or null if no box at position
      */
+    /**
+     * Selects the box at the specified board position
+     * Used by the AI solver to move specific pieces
+     * 
+     * @param row Row position on the board
+     * @param col Column position on the board
+     * @return The selected BoxComponent, or null if no box at position
+     */
     public BoxComponent selectBoxAt(int row, int col) {
-        // Find the box at the specified position using the boxes list directly
+        System.out.println("Selecting box at model position [" + row + "," + col + "]");
+        
+        // Check the model first to get the actual piece type at this position
+        int blockType = 0;
+        try {
+            blockType = model.getId(row, col);
+            System.out.println("Block type at position: " + blockType);
+        } catch (Exception e) {
+            System.out.println("Error accessing model at [" + row + "," + col + "]: " + e.getMessage());
+            return null;
+        }
+        
+        // Skip if empty cell or invalid coordinates
+        if (blockType == 0 || row < 0 || col < 0 || row >= model.getHeight() || col >= model.getWidth()) {
+            System.out.println("No piece at this position or invalid coordinates");
+            return null;
+        }
+        
+        // For multi-cell pieces, we need to find the top-left corner
+        // This is critical for Cao Cao (2x2), Guan Yu (2x1), etc.
+        int originRow = row;
+        int originCol = col;
+        
+        // Check up and left to find origin of multi-cell pieces
+        if (blockType == MapModel.CAO_CAO) {
+            // For Cao Cao (2x2), find top-left
+            if (row > 0 && col > 0 && model.getId(row-1, col-1) == blockType) {
+                originRow = row-1;
+                originCol = col-1;
+            } else if (row > 0 && model.getId(row-1, col) == blockType) {
+                originRow = row-1;
+            } else if (col > 0 && model.getId(row, col-1) == blockType) {
+                originCol = col-1;
+            }
+        } else if (blockType == MapModel.GUAN_YU) {
+            // For Guan Yu (2x1 horizontal), find leftmost
+            if (col > 0 && model.getId(row, col-1) == blockType) {
+                originCol = col-1;
+            }
+        } else if (blockType == MapModel.GENERAL) {
+            // For General (1x2 vertical), find topmost
+            if (row > 0 && model.getId(row-1, col) == blockType) {
+                originRow = row-1;
+            }
+        } else if (blockType == MapModel.ZHOU_YU) {
+            // For Zhou Yu (1x3 horizontal), find leftmost
+            if (col > 0 && model.getId(row, col-1) == blockType) {
+                originCol = col-1;
+                if (col > 1 && model.getId(row, col-2) == blockType) {
+                    originCol = col-2;
+                }
+            }
+        }
+        
+        System.out.println("Looking for piece origin at [" + originRow + "," + originCol + "]");
+        
+        // Find the box component at the origin position
         for (BoxComponent box : view.getBoxes()) {
-            if (box.getRow() == row && box.getCol() == col) {
+            if (box.getRow() == originRow && box.getCol() == originCol) {
                 // Select this box and deselect any previously selected box
                 BoxComponent previousBox = view.getSelectedBox();
                 if (previousBox != null) {
@@ -869,11 +1264,12 @@ public class GameController {
                 box.setSelected(true);
                 // Set this box as the selected box in the view
                 view.selectedBox = box;
+                System.out.println("Found and selected box at [" + originRow + "," + originCol + "]");
                 return box;
             }
         }
         
-        System.out.println("No box found at position [" + row + "," + col + "]");
+        System.out.println("No box component found at position [" + originRow + "," + originCol + "]");
         return null;
     }
 
