@@ -3,17 +3,13 @@ package view.game;
 import controller.GameController;
 import model.Direction;
 import model.MapModel;
-
 import javax.swing.*;
-import javax.swing.border.Border;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.List;
-
-/**
- * It is the subclass of ListenerPanel, so that it should implement those four methods: do move left, up, down ,right.
- * The class contains a grids, which is the corresponding GUI view of the matrix variable in MapMatrix.
- */
+import javax.swing.border.Border;
 public class GamePanel extends ListenerPanel {
     private List<BoxComponent> boxes;
     private MapModel model;
@@ -21,36 +17,48 @@ public class GamePanel extends ListenerPanel {
     private JLabel stepLabel;
     private int steps;
     private int GRID_SIZE;
-    private BoxComponent selectedBox;
+    public BoxComponent selectedBox;
+    private int horizontalPadding = 150;
+    private int verticalPadding = 100;
+
+    private boolean obstacleSelectionMode = false;
+    private Image backgroundImage;
 
     public GamePanel(MapModel model) {
         boxes = new ArrayList<>();
         this.setVisible(true);
         this.setFocusable(true);
         this.setLayout(null);
-        this.requestFocusInWindow(); // Explicitly request focus
+        this.requestFocusInWindow();
 
-        // Calculate optimized GRID_SIZE based on model dimensions
+        this.backgroundImage = new ImageIcon(getClass().getResource("/Chessboard.jpg")).getImage();
+
         int maxDimension = Math.max(model.getWidth(), model.getHeight());
-        int minDimension = Math.min(model.getWidth(), model.getHeight());
-        GRID_SIZE = Math.min(70, Math.max(45, 500 / maxDimension - (maxDimension - minDimension) * 2));
 
-        System.out.println("Calculated GRID_SIZE: " + GRID_SIZE +
-                         " for board " + model.getWidth() + "x" + model.getHeight());
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        int availableWidth = (int)(screenSize.width * 0.8);
+        int availableHeight = (int)(screenSize.height * 0.8);
 
-        // Calculate panel size with dynamic padding
-        int padding = Math.max(10, GRID_SIZE / 4);
-        int width = model.getWidth() * GRID_SIZE + padding * 2;
-        int height = (model.getHeight() + 1) * GRID_SIZE + padding * 2; // +1 for exit
+        int maxWidthGridSize = (availableWidth - 300) / model.getWidth();
+        int maxHeightGridSize = (availableHeight - 200) / model.getHeight();
 
-        System.out.println("Panel dimensions: " + width + "x" + height);
+        int adaptiveGridSize = Math.min(maxWidthGridSize, maxHeightGridSize);
+        adaptiveGridSize = Math.max(40, Math.min(70, adaptiveGridSize));
+        GRID_SIZE = adaptiveGridSize;
 
-        // Set sizes and ensure proper layout
-        this.setPreferredSize(new Dimension(width, height));
-        this.setMinimumSize(new Dimension(width, height));
-        this.setSize(width, height);
+        int boardWidth = model.getWidth() * GRID_SIZE;
+        int boardHeight = model.getHeight() * GRID_SIZE;
+        int exitSpace = GRID_SIZE + 20;
+        int width = boardWidth + horizontalPadding * 2;
+        int height = boardHeight + verticalPadding * 2 + exitSpace;
+        Dimension panelSize = new Dimension(width + 20, height + 20);
+        this.setPreferredSize(panelSize);
+        this.setMinimumSize(panelSize);
+        this.setSize(panelSize);
         this.model = model;
         this.selectedBox = null;
+        this.validate();
+        this.setBackground(new Color(240, 240, 255));
 
         try {
             initialGame();
@@ -61,113 +69,114 @@ public class GamePanel extends ListenerPanel {
         }
     }
 
-    /*
-                        {1, 2, 2, 1, 1},
-                        {3, 4, 4, 2, 2},
-                        {3, 4, 4, 1, 0},
-                        {1, 2, 2, 1, 0},
-                        {1, 1, 1, 1, 1}
-     */
     public void initialGame() {
         this.steps = 0;
-        // Debug model dimensions and contents
-        // System.out.println("Initializing game with model dimensions: " +
-        //     model.getHeight() + "x" + model.getWidth());
-        // System.out.println("Model matrix:");
-        // for (int i = 0; i < model.getHeight(); i++) {
-        //     for (int j = 0; j < model.getWidth(); j++) {
-        //         System.out.print(model.getId(i, j) + " ");
-        //     }
-        //     System.out.println();
-        // }
-
-        // Initialize game board from full model
         int[][] map = new int[model.getHeight()][model.getWidth()];
         for (int i = 0; i < model.getHeight(); i++) {
             for (int j = 0; j < model.getWidth(); j++) {
                 map[i][j] = model.getId(i, j);
             }
         }
-        // Create components for all blocks
         for (int i = 0; i < map.length; i++) {
             for (int j = 0; j < map[0].length; j++) {
-                if (map[i][j] == 0) continue; // Skip empty cells
+                if (map[i][j] == 0) continue;
 
                 BoxComponent box = null;
                 int blockType = map[i][j];
 
                 switch(blockType) {
-                    case MapModel.CAO_CAO: // 2x2
+                    case MapModel.CAO_CAO:
                         if (i < map.length - 1 && j < map[0].length - 1) {
                             box = new BoxComponent(Color.RED, i, j);
                             box.setSize(GRID_SIZE * 2, GRID_SIZE * 2);
                         }
                         break;
-                    case MapModel.GUAN_YU: // 2x1 horizontal
+                    case MapModel.GUAN_YU:
                         if (j < map[0].length - 1 && map[i][j] == MapModel.GUAN_YU && map[i][j+1] == MapModel.GUAN_YU) {
                             box = new BoxComponent(Color.ORANGE, i, j);
                             box.setSize(GRID_SIZE * 2, GRID_SIZE);
-                            map[i][j+1] = 0; // Mark adjacent cell as processed
+                            map[i][j+1] = 0;
                         }
                         break;
-                    case MapModel.GENERAL: // 1x2 vertical
+                    case MapModel.GENERAL:
                         if (i < map.length - 1 && map[i][j] == MapModel.GENERAL && map[i+1][j] == MapModel.GENERAL) {
                             box = new BoxComponent(Color.BLUE, i, j);
                             box.setSize(GRID_SIZE, GRID_SIZE * 2);
-                            map[i+1][j] = 0; // Mark lower cell as processed
+                            map[i+1][j] = 0;
                         }
                         break;
-                    case MapModel.SOLDIER: // 1x1
+                    case MapModel.SOLDIER:
                         box = new BoxComponent(Color.GREEN, i, j);
                         box.setSize(GRID_SIZE, GRID_SIZE);
                         break;
-                    case MapModel.ZHOU_YU: // 1x3 horizontal
+                    case MapModel.ZHOU_YU:
                         if (j < map[0].length - 2) {
                             box = new BoxComponent(Color.MAGENTA, i, j);
                             box.setSize(GRID_SIZE * 3, GRID_SIZE);
                         }
                         break;
-                    case MapModel.BLOCKED: // Immovable
+                    case MapModel.BLOCKED:
                         box = new BoxComponent(Color.DARK_GRAY, i, j);
                         box.setSize(GRID_SIZE, GRID_SIZE);
                         box.setMovable(false);
                         break;
+                    case -MapModel.BLOCKED:
+                        box = new BoxComponent(new Color(200, 200, 200), i, j);
+                        box.setSize(GRID_SIZE, GRID_SIZE);
+                        box.setMovable(true);
+                        break;
+                    case MapModel.MILITARY_CAMP:  // 仅修改此case
+                        box = new BoxComponent(new Color(139, 69, 19), i, j);
+                        box.setSize(GRID_SIZE, GRID_SIZE);
+                        box.setMovable(false);
+                        // 加载并缩放军营图片
+                        ImageIcon campIcon = new ImageIcon(getClass().getResource("/MILITARY_CAMP.jpg"));
+                        Image scaledImage = campIcon.getImage().getScaledInstance(
+                                GRID_SIZE, GRID_SIZE, Image.SCALE_SMOOTH);  // 适配格子大小
+                        JLabel campLabel = new JLabel(new ImageIcon(scaledImage));
+                        campLabel.setBounds(0, 0, GRID_SIZE, GRID_SIZE);  // 填满格子
+                        box.setLayout(new BorderLayout());
+                        box.add(campLabel, BorderLayout.CENTER);  // 用图片标签替代文字
+                        box.setBackground(new Color(0, 0, 0, 0));  // 透明背景避免遮挡图片
+                        break;
                 }
 
                 if (box != null) {
-                    // Calculate precisely centered position
                     int boardWidth = model.getWidth() * GRID_SIZE;
                     int boardHeight = model.getHeight() * GRID_SIZE;
-                    // Calculate position with dynamic padding
-                    int panelWidth = this.getWidth();
-                    int panelHeight = this.getHeight();
-                    int xOffset = (panelWidth - boardWidth) / 2;
-                    int yOffset = (panelHeight - boardHeight - GRID_SIZE) / 3; // Adjusted vertical centering
-
-                    // Ensure minimum padding
-                    if (xOffset < 10) xOffset = 10;
-                    if (yOffset < 10) yOffset = 10;
-
-                    // Calculate precise position accounting for block type
+                    int xOffset = horizontalPadding;
+                    int yOffset = verticalPadding;
+                    if (xOffset < 100) xOffset = 100;
+                    if (yOffset < 80) yOffset = 80;
                     int x = xOffset + j * GRID_SIZE;
                     int y = yOffset + i * GRID_SIZE;
 
-                    // Special adjustment for Guan Yu blocks to ensure proper grid alignment
-                    if (blockType == MapModel.GUAN_YU) {
-                        x = xOffset + j * GRID_SIZE;
-                        y = yOffset + i * GRID_SIZE;
-                        // Verify the block spans exactly 2 grid cells horizontally
-                        if (box.getWidth() != GRID_SIZE * 2) {
-                            box.setSize(GRID_SIZE * 2, GRID_SIZE);
-                        }
+                    switch (blockType) {
+                        case MapModel.GUAN_YU:
+                            if (box.getWidth() != GRID_SIZE * 2) {
+                                box.setSize(GRID_SIZE * 2, GRID_SIZE);
+                            }
+                            break;
+                        case MapModel.GENERAL:
+                            if (box.getHeight() != GRID_SIZE * 2) {
+                                box.setSize(GRID_SIZE, GRID_SIZE * 2);
+                            }
+                            break;
+                        case MapModel.CAO_CAO:
+                            if (box.getWidth() != GRID_SIZE * 2 || box.getHeight() != GRID_SIZE * 2) {
+                                box.setSize(GRID_SIZE * 2, GRID_SIZE * 2);
+                            }
+                            break;
+                        case MapModel.ZHOU_YU:
+                            if (box.getWidth() != GRID_SIZE * 3) {
+                                box.setSize(GRID_SIZE * 3, GRID_SIZE);
+                            }
+                            break;
                     }
 
-                    System.out.printf("Block at %d,%d positioned at %d,%d (offset %d,%d)\n",
-                        i, j, x, y, xOffset, yOffset);
                     box.setLocation(x, y);
                     boxes.add(box);
                     this.add(box);
-                    // Mark all occupied cells as processed
                     for (int r = i; r < i + box.getHeight()/GRID_SIZE; r++) {
                         for (int c = j; c < j + box.getWidth()/GRID_SIZE; c++) {
                             if (r < map.length && c < map[0].length) {
@@ -181,29 +190,96 @@ public class GamePanel extends ListenerPanel {
         this.repaint();
     }
 
-
     @Override
     public void doMouseClick(Point point) {
         Component component = this.getComponentAt(point);
         if (component instanceof BoxComponent clickedComponent) {
-            if (selectedBox == null) {
-                selectedBox = clickedComponent;
-                selectedBox.setSelected(true);
-            } else if (selectedBox != clickedComponent) {
-                selectedBox.setSelected(false);
-                clickedComponent.setSelected(true);
-                selectedBox = clickedComponent;
+            view.game.GameFrame gameFrame = null;
+            if (this.getParent() != null && this.getParent().getParent() instanceof view.game.GameFrame) {
+                gameFrame = (view.game.GameFrame) this.getParent().getParent();
+            }
+
+            if (obstacleSelectionMode) {
+                handleObstacleSelection(clickedComponent);
+                return;
+            }
+            if (controller != null && gameFrame != null && gameFrame.propPanel != null) {
+                boolean obstacleRemoverActive = gameFrame.propPanel.isObstacleRemoverActive();
+                if (obstacleRemoverActive) {
+                    handleObstacleRemover(clickedComponent, gameFrame);
+                    return;
+                }
+            }
+
+            handleNormalPieceSelection(clickedComponent);
+        }
+    }
+
+    private void handleObstacleSelection(BoxComponent clickedComponent) {
+        int row = clickedComponent.getRow();
+        int col = clickedComponent.getCol();
+        int pieceType = controller.getModel().getId(row, col);
+
+        if (pieceType == MapModel.BLOCKED) {
+            boolean success = controller.useObstacleRemoverProp(row, col);
+            if (success) {
+                setObstacleSelectionMode(false);
+                resetBoard(controller.getModel().getMatrix());
+                JOptionPane.showMessageDialog(this, "Obstacle successfully removed!", "Obstacle Removed", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                clickedComponent.setSelected(false);
-                selectedBox = null;
+                setObstacleSelectionMode(false);
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "The obstacle remover can only be used on obstacles (gray blocks).", "Obstacle Remover", JOptionPane.INFORMATION_MESSAGE);
+            setObstacleSelectionMode(false);
+        }
+    }
+
+    private void handleObstacleRemover(BoxComponent clickedComponent, view.game.GameFrame gameFrame) {
+        int row = clickedComponent.getRow();
+        int col = clickedComponent.getCol();
+        int pieceType = controller.getModel().getId(row, col);
+
+        if (pieceType == MapModel.BLOCKED) {
+            boolean success = controller.useObstacleRemoverProp(row, col);
+            if (success) {
+                gameFrame.propPanel.resetObstacleRemoverMode();
+                resetBoard(controller.getModel().getMatrix());
+                this.revalidate();
+                this.repaint();
+                JOptionPane.showMessageDialog(this, "Obstacle successfully removed!", "Obstacle Removed", JOptionPane.INFORMATION_MESSAGE);
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "The obstacle remover can only be used on obstacles (gray blocks).", "Obstacle Remover", JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+    private void handleNormalPieceSelection(BoxComponent clickedComponent) {
+        if (selectedBox == null) {
+            selectedBox = clickedComponent;
+            selectedBox.setSelected(true);
+        } else if (selectedBox != clickedComponent) {
+            selectedBox.setSelected(false);
+            clickedComponent.setSelected(true);
+            selectedBox = clickedComponent;
+        } else {
+            clickedComponent.setSelected(false);
+            selectedBox = null;
+        }
+    }
+
+    private boolean isAnyBoxAnimating() {
+        for (BoxComponent box : boxes) {
+            if (box.isAnimating()) {
+                return true;
             }
         }
+        return false;
     }
 
     @Override
     public void doMoveRight() {
-        System.out.println("Click VK_RIGHT");
-        if (selectedBox != null) {
+        if (selectedBox != null && !isAnyBoxAnimating()) {
             if (controller.doMove(selectedBox.getRow(), selectedBox.getCol(), Direction.RIGHT)) {
                 afterMove();
             }
@@ -212,8 +288,7 @@ public class GamePanel extends ListenerPanel {
 
     @Override
     public void doMoveLeft() {
-        System.out.println("Click VK_LEFT");
-        if (selectedBox != null) {
+        if (selectedBox != null && !isAnyBoxAnimating()) {
             if (controller.doMove(selectedBox.getRow(), selectedBox.getCol(), Direction.LEFT)) {
                 afterMove();
             }
@@ -222,8 +297,7 @@ public class GamePanel extends ListenerPanel {
 
     @Override
     public void doMoveUp() {
-        System.out.println("Click VK_Up");
-        if (selectedBox != null) {
+        if (selectedBox != null && !isAnyBoxAnimating()) {
             if (controller.doMove(selectedBox.getRow(), selectedBox.getCol(), Direction.UP)) {
                 afterMove();
             }
@@ -232,8 +306,7 @@ public class GamePanel extends ListenerPanel {
 
     @Override
     public void doMoveDown() {
-        System.out.println("Click VK_DOWN");
-        if (selectedBox != null) {
+        if (selectedBox != null && !isAnyBoxAnimating()) {
             if (controller.doMove(selectedBox.getRow(), selectedBox.getCol(), Direction.DOWN)) {
                 afterMove();
             }
@@ -241,7 +314,6 @@ public class GamePanel extends ListenerPanel {
     }
 
     public void afterMove() {
-        // Step count is now handled by GameController
         if (stepLabel != null) {
             stepLabel.setText(String.format("Step: %d", controller.getMoveCount()));
         }
@@ -251,10 +323,9 @@ public class GamePanel extends ListenerPanel {
         this.stepLabel = stepLabel;
     }
 
-
     public void setController(GameController controller) {
         this.controller = controller;
-        this.requestFocusInWindow(); // Ensure panel has focus for key events
+        this.requestFocusInWindow();
         this.addFocusListener(new java.awt.event.FocusAdapter() {
             public void focusGained(java.awt.event.FocusEvent evt) {
                 System.out.println("GamePanel gained focus");
@@ -273,17 +344,16 @@ public class GamePanel extends ListenerPanel {
         return GRID_SIZE;
     }
 
+    public List<BoxComponent> getBoxes() {
+        return boxes;
+    }
+
     public void resetBoard(int[][] newMatrix) {
-        // Clear existing boxes
         for (BoxComponent box : boxes) {
             this.remove(box);
         }
         boxes.clear();
-
-        // Update model reference
         this.model = new MapModel(newMatrix);
-
-        // Reinitialize game with new board
         initialGame();
     }
 
@@ -304,78 +374,65 @@ public class GamePanel extends ListenerPanel {
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
 
-        // Unified background drawing with perfect alignment
-        Graphics2D g2d = (Graphics2D)g;
+        if (backgroundImage != null) {
+            try {
+                int width = getWidth();
+                int height = getHeight();
 
-        // Calculate chessboard dimensions
+                boolean imageDrawn = g.drawImage(backgroundImage, 0, 0, width, height, this);
+
+                if (!imageDrawn) {
+                    System.err.println("背景图片未能成功绘制");
+                }
+            } catch (Exception e) {
+                System.err.println("绘制背景图片时出错: " + e.getMessage());
+                g.setColor(getBackground());
+                g.fillRect(0, 0, getWidth(), getHeight());
+            }
+        } else {
+            g.setColor(getBackground());
+            g.fillRect(0, 0, getWidth(), getHeight());
+        }
+        Graphics2D g2d = (Graphics2D)g;
         int boardWidth = model.getWidth() * GRID_SIZE;
         int boardHeight = model.getHeight() * GRID_SIZE;
+        int xOffset = horizontalPadding;
+        int yOffset = verticalPadding;
 
-        // Calculate position accounting for level dimensions
-        int xOffset = (this.getWidth() - boardWidth) / 2;
-        int yOffset;
+        if (xOffset < 100) xOffset = 100;
+        if (yOffset < 80) yOffset = 80;
 
-        // Special handling for level 3 (5x4 grid)
+        g2d.setColor(new Color(245, 222, 179, 0)); // 完全透明
         if (model.getWidth() == 5 && model.getHeight() == 4) {
-            // Precise calculation for level 3 (5x4 grid) with higher positioning
-            yOffset = (this.getHeight() - boardHeight - GRID_SIZE) / 3;
-            // Additional upward adjustment
-            yOffset = Math.max(10, yOffset - 8);
-        } else {
-            yOffset = (this.getHeight() - boardHeight - GRID_SIZE) / 3;
-        }
-
-        // Draw background with level-specific adjustments
-        g2d.setColor(new Color(240, 240, 255)); // Light blue-gray
-
-        if (model.getWidth() == 5 && model.getHeight() == 4) {
-            // Special handling for level 3 (5x4 grid)
             int topHeight = yOffset - 4;
             int bottomHeight = this.getHeight() - (yOffset + boardHeight + 4);
-
-            g2d.fillRect(0, 0, this.getWidth(), topHeight); // Top
-            g2d.fillRect(0, topHeight, xOffset - 4, boardHeight + 8); // Left
-            g2d.fillRect(xOffset + boardWidth + 4, topHeight,
-                       this.getWidth() - (xOffset + boardWidth + 4), boardHeight + 8); // Right
-            g2d.fillRect(0, yOffset + boardHeight + 4, this.getWidth(), bottomHeight); // Bottom
+            g2d.fillRect(0, 0, this.getWidth(), topHeight);
+            g2d.fillRect(0, topHeight, xOffset - 4, boardHeight + 8);
+            g2d.fillRect(xOffset + boardWidth + 4, topHeight, this.getWidth() - (xOffset + boardWidth + 4), boardHeight + 8);
+            g2d.fillRect(0, yOffset + boardHeight + 4, this.getWidth(), bottomHeight);
         } else {
-            // Standard handling for other levels
-            g2d.fillRect(0, 0, this.getWidth(), yOffset - 2); // Top
-            g2d.fillRect(0, yOffset - 2, xOffset - 2, boardHeight + 4); // Left
-            g2d.fillRect(xOffset + boardWidth + 2, yOffset - 2,
-                       this.getWidth() - (xOffset + boardWidth + 2), boardHeight + 4); // Right
-            g2d.fillRect(0, yOffset + boardHeight + 2, this.getWidth(),
-                       this.getHeight() - (yOffset + boardHeight + 2)); // Bottom
+            g2d.fillRect(0, 0, this.getWidth(), yOffset - 2);
+            g2d.fillRect(0, yOffset - 2, xOffset - 2, boardHeight + 4);
+            g2d.fillRect(xOffset + boardWidth + 2, yOffset - 2, this.getWidth() - (xOffset + boardWidth + 2), boardHeight + 4);
+            g2d.fillRect(0, yOffset + boardHeight + 2, this.getWidth(), this.getHeight() - (yOffset + boardHeight + 2));
         }
-
-        // Draw chessboard area (wheat color)
         g2d.setColor(new Color(245, 222, 179));
         g2d.fillRect(xOffset - 2, yOffset - 2, boardWidth + 4, boardHeight + 4);
-
-        // Draw inner chessboard (cornsilk)
         g2d.setColor(new Color(255, 248, 220));
         g2d.fillRect(xOffset, yOffset, boardWidth, boardHeight);
 
-        // Reuse existing board position variables for exit alignment
+        int exitWidth = 2 * GRID_SIZE;
+        int exitX = xOffset + (boardWidth - exitWidth) / 2;
+        int exitY = yOffset + boardHeight - GRID_SIZE;
 
-        // Draw exit position centered below chessboard with tight spacing
-        int exitWidth = 2 * GRID_SIZE; // Fixed width of 2 grid cells
-        int exitX = (this.getWidth() - exitWidth) / 2; // Center in panel
-        int exitY = yOffset + boardHeight + 2; // Below board with 2px margin
-
-        // Draw exit background
         if (exitHighlighted) {
-            g.setColor(new Color(255, 100, 100)); // Bright red when highlighted
+            g.setColor(new Color(255, 100, 100));
         } else {
-            g.setColor(new Color(255, 200, 200)); // Light red normally
+            g.setColor(new Color(255, 200, 200));
         }
         g.fillRect(exitX, exitY, exitWidth, GRID_SIZE);
-
-        // Draw exit border
         g.setColor(Color.RED);
         g.drawRect(exitX, exitY, exitWidth, GRID_SIZE);
-
-        // Draw "EXIT" text
         g.setColor(Color.BLACK);
         Font exitFont = new Font(Font.SANS_SERIF, Font.BOLD, GRID_SIZE/2);
         g.setFont(exitFont);
@@ -394,5 +451,10 @@ public class GamePanel extends ListenerPanel {
         if (stepLabel != null) {
             stepLabel.setText(String.format("Step: %d", this.steps));
         }
+    }
+
+    public void setObstacleSelectionMode(boolean active) {
+        this.obstacleSelectionMode = active;
+        this.setCursor(active ? Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR) : Cursor.getDefaultCursor());
     }
 }

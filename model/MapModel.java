@@ -7,6 +7,9 @@ package model;
  * 2 = Guan Yu (2x1) 
  * 3 = General (1x2)
  * 4 = Soldier (1x1)
+ * 5 = Zhou Yu (1x3)
+ * 9 = Blocked (immovable)
+ * 10 = Military Camp (soldiers cannot step on)
  */
 public class MapModel {
     public static final int CAO_CAO = 1;
@@ -15,10 +18,35 @@ public class MapModel {
     public static final int SOLDIER = 4;
     public static final int ZHOU_YU = 5; // 1x3 horizontal block
     public static final int BLOCKED = 9; // Immovable obstacle
+    public static final int MILITARY_CAMP = 10; // Military camp - only soldiers can step on
+    
+    // Difficulty level names
+    public static final String[] LEVEL_NAMES = {
+        "Easy", "Hard", "Expert", "Master"
+    };
+    
+    // Props availability per level
+    public static final boolean[] LEVEL_PROPS_ALLOWED = {
+        false, // Easy - no props
+        true,  // Hard - props allowed
+        true,  // Expert - props allowed
+        false  // Master - no props
+    };
+    
+    // Time attack enforced settings
+    public static final boolean[] LEVEL_TIME_ATTACK_ENFORCED = {
+        false, // Easy - optional time attack
+        false, // Hard - optional time attack
+        false, // Expert - optional time attack
+        true   // Master - enforced 5 min time attack
+    };
+    
+    // Default time for enforced time attack levels (in minutes)
+    public static final int DEFAULT_MASTER_TIME_LIMIT = 5;
     
     int[][] matrix;
     public static final int[][][] LEVELS = {
-        // Level 1 - Classic configuration (4x5)
+        // Level 0 - Easy (4x5) Classic configuration
         {
             {GENERAL, CAO_CAO, CAO_CAO, GENERAL},
             {GENERAL, CAO_CAO, CAO_CAO, GENERAL},
@@ -26,24 +54,34 @@ public class MapModel {
             {GENERAL, SOLDIER, SOLDIER, GENERAL},
             {GENERAL, GUAN_YU, GUAN_YU, GENERAL}
         },
-        // Level 2 - Expert (5x6 with complex obstacles)
+        // Level 1 - Hard (5x6) with Cao Cao at top middle
         {
-            {BLOCKED, CAO_CAO, CAO_CAO, BLOCKED, GENERAL, 0},
-            {BLOCKED, CAO_CAO, CAO_CAO, BLOCKED, GENERAL, 0},
-            {SOLDIER, BLOCKED, BLOCKED, SOLDIER, BLOCKED, SOLDIER},
-            {GENERAL, SOLDIER, SOLDIER, GENERAL, SOLDIER, BLOCKED},
-            {GENERAL, GUAN_YU, GUAN_YU, GENERAL, SOLDIER, 0},
-            {SOLDIER, BLOCKED, BLOCKED, SOLDIER, 0, 0}
+            {0, BLOCKED, CAO_CAO, CAO_CAO, BLOCKED},
+            {0, BLOCKED, CAO_CAO, CAO_CAO, BLOCKED},
+            {SOLDIER, SOLDIER, 0, 0, SOLDIER},
+            {GENERAL, GENERAL, SOLDIER, SOLDIER, GENERAL},
+            {0, GENERAL, GUAN_YU, GUAN_YU, GENERAL},
+            {0, SOLDIER, 0, BLOCKED, SOLDIER}
         },
-        // Level 3 - Master (6x7 with multiple challenges)
+        // Level 2 - Expert (6x7) with more blocks
         {
-            {BLOCKED, CAO_CAO, CAO_CAO, BLOCKED, GENERAL, 0, 0},
-            {BLOCKED, CAO_CAO, CAO_CAO, BLOCKED, GENERAL, 0, 0},
-            {SOLDIER, BLOCKED, BLOCKED, SOLDIER, BLOCKED, SOLDIER, 0},
-            {GENERAL, SOLDIER, SOLDIER, GENERAL, SOLDIER, BLOCKED, 0},
-            {GENERAL, GUAN_YU, GUAN_YU, GENERAL, SOLDIER, 0, 0},
-            {SOLDIER, ZHOU_YU, ZHOU_YU, ZHOU_YU, SOLDIER, 0, 0},
-            {BLOCKED, 0, 0, BLOCKED, 0, 0, 0}
+            {0, 0, CAO_CAO, CAO_CAO, 0, 0},
+            {0, 0, CAO_CAO, CAO_CAO, 0, 0},
+            {SOLDIER, BLOCKED, 0, 0, BLOCKED, SOLDIER},
+            {GENERAL, SOLDIER, SOLDIER, SOLDIER, SOLDIER, GENERAL},
+            {GENERAL, GUAN_YU, GUAN_YU, GUAN_YU, GUAN_YU, GENERAL},
+            {SOLDIER, 0, 0, BLOCKED, 0, SOLDIER},
+            {0, 0, ZHOU_YU, ZHOU_YU, ZHOU_YU, 0}
+        },
+        // Level 3 - Master (6x7) with Military Camp obstacles
+        {
+            {0, MILITARY_CAMP, CAO_CAO, CAO_CAO, MILITARY_CAMP, 0},
+            {0, 0, CAO_CAO, CAO_CAO, 0, 0},
+            {SOLDIER, BLOCKED, 0, 0, BLOCKED, SOLDIER},
+            {GENERAL, SOLDIER, SOLDIER, SOLDIER, SOLDIER, GENERAL},
+            {GENERAL, GUAN_YU, GUAN_YU, GUAN_YU, GUAN_YU, GENERAL},
+            {SOLDIER, MILITARY_CAMP, 0, BLOCKED, MILITARY_CAMP, SOLDIER},
+            {0, 0, ZHOU_YU, ZHOU_YU, ZHOU_YU, 0}
         }
     };
 
